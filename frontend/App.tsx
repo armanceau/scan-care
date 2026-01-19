@@ -7,6 +7,9 @@ import { Pressable, View, Text, StyleSheet } from "react-native";
 import ReminderList from "./src/screens/ReminderList";
 
 export default function App() {
+  const [mode, setMode] = useState<AuthMode>("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -17,6 +20,7 @@ export default function App() {
       setUser(authUser);
       handleAuthStateChange(authUser);
     });
+
     return unsubscribe;
   }, []);
 
