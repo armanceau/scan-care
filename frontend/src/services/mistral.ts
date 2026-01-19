@@ -1,5 +1,5 @@
 import axios from 'axios';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const MISTRAL_API_KEY = process.env.EXPO_PUBLIC_MISTRAL_API_KEY || '';
 const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions';
@@ -29,13 +29,58 @@ export interface PrescriptionAnalysis {
  */
 async function imageToBase64(imageUri: string): Promise<string> {
   try {
+    console.log('🔄 Conversion de l\'image en base64...');
+    console.log('📍 URI original:', imageUri);
+    
+    // Vérifier que l'URI existe
+    if (!imageUri) {
+      throw new Error('URI de l\'image vide ou undefined');
+    }
+
+    // Obtenir les infos du fichier pour vérifier qu'il existe
+    console.log('🔍 Vérification de l\'existence du fichier...');
+    const fileInfo = await FileSystem.getInfoAsync(imageUri);
+    console.log('📋 Info fichier:', JSON.stringify(fileInfo, null, 2));
+    
+    if (!fileInfo.exists) {
+      throw new Error('Le fichier image n\'existe pas à l\'URI: ' + imageUri);
+    }
+
+    // Si c'est un dossier au lieu d'un fichier
+    if (fileInfo.isDirectory) {
+      throw new Error('L\'URI pointe vers un dossier, pas un fichier');
+    }
+
+    console.log('📖 Lecture du fichier en base64...');
     const base64 = await FileSystem.readAsStringAsync(imageUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
+    
+    if (!base64 || base64.length === 0) {
+      throw new Error('La conversion base64 a retourné une valeur vide');
+    }
+    
+    console.log('✅ Image convertie en base64');
+    console.log('📏 Taille:', base64.length, 'caractères');
+    
     return base64;
   } catch (error) {
-    console.error('Erreur lors de la conversion en base64:', error);
-    throw new Error('Impossible de lire l\'image');
+    console.error('');
+    console.error('❌ ERREUR CONVERSION BASE64');
+    console.error('═══════════════════════════════════════════════');
+    console.error('📍 URI:', imageUri);
+    console.error('🔍 Type erreur:', typeof error);
+    console.error('📄 Détails complets:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+    console.error('💬 Message:', error instanceof Error ? error.message : 'Erreur inconnue');
+    
+    // Si c'est une erreur de FileSystem, donner plus de détails
+    if (error && typeof error === 'object' && 'code' in error) {
+      console.error('🔢 Code erreur:', (error as any).code);
+    }
+    
+    console.error('═══════════════════════════════════════════════');
+    console.error('');
+    throw new Error('Impossible de lire l\'image: ' + (error instanceof Error ? error.message : JSON.stringify(error)));
   }
 }
 
@@ -84,23 +129,23 @@ Retourne UNIQUEMENT un JSON valide (sans texte avant ou après) au format :
       "duration": "durée",
       "instructions": "instructions si présentes"
     }
-  ]NVOI REQUÊTE À MISTRAL AI');
+  ]
+}
+
+Si aucun médicament n'est détecté, retourne : {"medications": []}`;
+
+    console.log('🚀 ENVOI REQUÊTE À MISTRAL AI');
     console.log('═══════════════════════════════════════════════');
     console.log('🔑 Clé API:', MISTRAL_API_KEY ? MISTRAL_API_KEY.substring(0, 10) + '...' : 'NON DÉFINIE');
     console.log('🌐 URL:', MISTRAL_API_URL);
     console.log('🤖 Modèle: pixtral-12b-2409');
-    console.log(''
-Si aucun médicament n'est détecté, retourne : {"medications": []}`;
-
-    console.log('🚀 Envoi de la requête à Mistral AI...');
-    console.log('🔑 Clé API (premiers chars):', MISTRAL_API_KEY.substring(0, 10) + '...');
-    console.log('🌐 URL API:', MISTRAL_API_URL);
+    console.log('');
 
     // Appel à l'API Mistral avec le modèle vision
     const response = await axios.post(
       MISTRAL_API_URL,
       {
-        model: 'pixtral-12b-2409', // Modèle avec support vision
+        model: 'pixtral-12b-2409',
         messages: [
           {
             role: 'user',
@@ -116,7 +161,7 @@ Si aucun médicament n'est détecté, retourne : {"medications": []}`;
             ],
           },
         ],
-        temperature: 0.2, // Basse température pour plus de précision
+        temperature: 0.2,
         max_tokens: 2000,
       },
       {
@@ -124,8 +169,11 @@ Si aucun médicament n'est détecté, retourne : {"medications": []}`;
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${MISTRAL_API_KEY}`,
         },
-        timeout: 30000, // 30 secondes de timeout
-      }ÉPONSE REÇUE');
+        timeout: 30000,
+      }
+    );
+
+    console.log('✅ RÉPONSE REÇUE');
     console.log('═══════════════════════════════════════════════');
 
     // Extraire le contenu de la réponse
@@ -133,18 +181,19 @@ Si aucun médicament n'est détecté, retourne : {"medications": []}`;
     console.log('📄 CONTENU MISTRAL:');
     console.log(content);
     console.log('═══════════════════════════════════════════════');
-    console.log('ring(0, 200) + '...');
-    console.log('📄 RÉPONSE COMPLÈTE MISTRAL:');
-    console.log(content);
-    console.log('================================');
+    console.log('');
 
     // Parser le JSON
     try {
-      // Nettoyer la réponse (enlever les éventuels backticks ou markdown)
+      // Nettoyer la réponse
       const cleanContent = content
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
-        .trim();'✅ ANALYSE TERMINÉE AVEC SUCCÈS');
+        .trim();
+      
+      const result: PrescriptionAnalysis = JSON.parse(cleanContent);
+      
+      console.log('✅ ANALYSE TERMINÉE AVEC SUCCÈS');
       console.log('═══════════════════════════════════════════════');
       console.log(`💊 ${result.medications.length} médicament(s) détecté(s)`);
       console.log('📊 RÉSULTAT:');
@@ -160,9 +209,13 @@ Si aucun médicament n'est détecté, retourne : {"medications": []}`;
       console.error('Erreur:', parseError);
       console.error('Contenu reçu:', content);
       console.error('═══════════════════════════════════════════════');
-      console.error(''
-      return result;
-    } catch (parseError) {
+      console.error('');
+      
+      return {
+        medications: [],
+      };
+    }
+  } catch (error) {
     console.error('');
     console.error('❌ ERREUR LORS DE L\'ANALYSE');
     console.error('═══════════════════════════════════════════════');
@@ -177,19 +230,8 @@ Si aucun médicament n'est détecté, retourne : {"medications": []}`;
       console.error('  - URL:', error.config?.url);
       console.error('  - Method:', error.config?.method);
       console.error('═══════════════════════════════════════════════');
-      console.error(''(axios.isAxiosError(error)) {
-      console.error('❌ ERREUR API AXIOS:');
-      console.error('Status:', error.response?.status);
-      console.error('Data:', JSON.stringify(error.response?.data, null, 2));
-      console.error('Message:', error.message);
-      console.error('Config:', {
-        url: error.config?.url,
-        method: error.config?.method,
-        headers: er💥 Type: Erreur inattendue (non-axios)');
-    console.error('🔍 Type:', typeof error);
-    console.error('📄 Details:', JSON.stringify(error, null, 2));
-    console.error('═══════════════════════════════════════════════');
-    console.error(''
+      console.error('');
+      
       if (error.response?.status === 401) {
         throw new Error('Clé API Mistral invalide');
       } else if (error.response?.status === 429) {
@@ -201,9 +243,11 @@ Si aucun médicament n'est détecté, retourne : {"medications": []}`;
       }
     }
     
-    console.error('❌ Erreur inattendue (non-axios):', error);
-    console.error('Type:', typeof error);
-    console.error('Details:', JSON.stringify(error, null, 2));
+    console.error('💥 Type: Erreur inattendue (non-axios)');
+    console.error('🔍 Type:', typeof error);
+    console.error('📄 Details:', JSON.stringify(error, null, 2));
+    console.error('═══════════════════════════════════════════════');
+    console.error('');
     throw new Error('Impossible d\'analyser l\'ordonnance: ' + (error instanceof Error ? error.message : 'Erreur inconnue'));
   }
 }
