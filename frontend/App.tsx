@@ -6,8 +6,8 @@ import {
   watchAuthState,
 } from "./src/services/auth";
 
+type AuthMode = "signin" | "signup";
 import ReminderList from './src/screens/ReminderList';
-import { Pressable, Text, StyleSheet, View } from "react-native";
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
