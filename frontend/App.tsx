@@ -14,6 +14,7 @@ import {
 
 import {
   signInWithEmail,
+  signInWithGoogle,
   signOutUser,
   signUpWithEmail,
   watchAuthState,
@@ -70,6 +71,20 @@ export default function App() {
       await signOutUser();
       setEmail("");
       setPassword("");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erreur inconnue.";
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleGoogle = async () => {
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      await signInWithGoogle();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erreur inconnue.";
       setError(message);
@@ -151,6 +166,14 @@ export default function App() {
             </Pressable>
 
             <Pressable
+              style={[styles.button, styles.googleButton]}
+              onPress={handleGoogle}
+              disabled={submitting}
+            >
+              <Text style={styles.buttonText}>Continuer avec Google</Text>
+            </Pressable>
+
+            <Pressable
               style={styles.linkButton}
               onPress={() =>
                 setMode((current) =>
@@ -218,6 +241,9 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.8,
+  },
+  googleButton: {
+    backgroundColor: "#ea4335",
   },
   danger: {
     backgroundColor: "#dc2626",
