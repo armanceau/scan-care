@@ -72,24 +72,6 @@ export const LoginScreen = ({
     }
   };
 
-  const handleSignOut = async () => {
-    setSubmitting(true);
-    setError(null);
-
-    try {
-      const { signOutUser } = await import("../services/auth");
-      await signOutUser();
-      setEmail("");
-      setPassword("");
-      onSignOut?.();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Erreur inconnue.";
-      setError(message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleGoogle = async () => {
     setSubmitting(true);
     setError(null);
@@ -141,20 +123,6 @@ export const LoginScreen = ({
 
               <Text style={styles.connectedEmail}>{user.email}</Text>
               <Text style={styles.connectedText}>Vous êtes connecté</Text>
-
-              <Pressable
-                style={[
-                  styles.button,
-                  styles.buttonPrimary,
-                  submitting && styles.buttonDisabled,
-                ]}
-                onPress={handleSignOut}
-                disabled={submitting}
-              >
-                <Text style={styles.buttonText}>
-                  {submitting ? "Déconnexion..." : "Se déconnecter"}
-                </Text>
-              </Pressable>
             </View>
           ) : (
             <View style={styles.formContainer}>
