@@ -7,7 +7,6 @@ import {
 } from "./src/services/auth";
 
 type AuthMode = "signin" | "signup";
-import ReminderList from './src/screens/ReminderList';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
