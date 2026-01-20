@@ -45,7 +45,9 @@ export const signInWithGoogle = async () => {
         : process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 
   if (!clientId) {
-    throw new Error("Client ID Google manquant (fourni au moins le WEB).");
+    throw new Error(
+      "Missing Google Client ID (provide at least the WEB client ID).",
+    );
   }
 
   const redirectUri = AuthSession.makeRedirectUri();
