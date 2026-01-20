@@ -67,7 +67,11 @@ export const signInWithGoogle = async () => {
   const result = await AuthSession.startAsync({ authUrl });
 
   if (result.type !== "success" || !result.params?.id_token) {
-    throw new Error("Échec de la connexion Google.");
+    const reason =
+      result.type !== "success"
+        ? `Auth session finished with type "${result.type}".`
+        : "No id_token was returned by Google.";
+    throw new Error(`Google sign-in failed: ${reason}`);
   }
 
   const credential = GoogleAuthProvider.credential(result.params.id_token);
