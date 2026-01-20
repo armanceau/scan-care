@@ -17,7 +17,7 @@ export const signUpWithEmail = async (email: string, password: string) => {
   const credential = await createUserWithEmailAndPassword(
     auth,
     email,
-    password
+    password,
   );
   return credential.user;
 };
@@ -40,15 +40,15 @@ export const signInWithGoogle = async () => {
       ? process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
         process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
       : Platform.OS === "android"
-      ? process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ||
-        process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
-      : process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+        ? process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ||
+          process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+        : process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 
   if (!clientId) {
     throw new Error("Client ID Google manquant (fourni au moins le WEB).");
   }
 
-  const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
+  const redirectUri = AuthSession.makeRedirectUri();
   const state = Math.random().toString(36).slice(2);
   const nonce = Math.random().toString(36).slice(2);
 

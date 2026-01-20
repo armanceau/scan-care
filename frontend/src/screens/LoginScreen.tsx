@@ -72,8 +72,6 @@ export const LoginScreen = ({
     }
   };
 
-<<<<<<< HEAD
-=======
   const handleSignOut = async () => {
     setSubmitting(true);
     setError(null);
@@ -92,7 +90,6 @@ export const LoginScreen = ({
     }
   };
 
->>>>>>> d36bf86 (feat(authentification): refacto composant)
   const handleGoogle = async () => {
     setSubmitting(true);
     setError(null);
@@ -144,8 +141,6 @@ export const LoginScreen = ({
 
               <Text style={styles.connectedEmail}>{user.email}</Text>
               <Text style={styles.connectedText}>Vous êtes connecté</Text>
-<<<<<<< HEAD
-=======
 
               <Pressable
                 style={[
@@ -160,7 +155,6 @@ export const LoginScreen = ({
                   {submitting ? "Déconnexion..." : "Se déconnecter"}
                 </Text>
               </Pressable>
->>>>>>> d36bf86 (feat(authentification): refacto composant)
             </View>
           ) : (
             <View style={styles.formContainer}>

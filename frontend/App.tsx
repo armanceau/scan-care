@@ -2,9 +2,9 @@ import { LoginScreen } from "./src/screens/LoginScreen";
 import type { User } from "firebase/auth";
 import { useEffect, useState } from "react";
 
-import {
-  watchAuthState,
-} from "./src/services/auth";
+import { watchAuthState } from "./src/services/auth";
+import { Pressable, View, Text, StyleSheet } from "react-native";
+import ReminderList from "./src/screens/ReminderList";
 
 type AuthMode = "signin" | "signup";
 
@@ -30,20 +30,20 @@ export default function App() {
     }
   };
 
-    const handleSignOut = async () => {
-      setSubmitting(true);
-      setError(null);
-  
-      try {
-        const { signOutUser } = await import("./src/services/auth");
-        await signOutUser();
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Erreur inconnue.";
-        setError(message);
-      } finally {
-        setSubmitting(false);
-      }
-    };
+  const handleSignOut = async () => {
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const { signOutUser } = await import("./src/services/auth");
+      await signOutUser();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erreur inconnue.";
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <>
