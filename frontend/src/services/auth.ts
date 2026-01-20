@@ -9,9 +9,12 @@ import {
   type User,
 } from "firebase/auth";
 import * as AuthSession from "expo-auth-session";
+import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 
 import { auth } from "./firebase";
+
+WebBrowser.maybeCompleteAuthSession();
 
 export const signUpWithEmail = async (email: string, password: string) => {
   const credential = await createUserWithEmailAndPassword(
@@ -64,17 +67,26 @@ export const signInWithGoogle = async () => {
     `&state=${state}` +
     `&nonce=${nonce}`;
 
-  const result = await AuthSession.startAsync({ authUrl });
+  const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
 
-  if (result.type !== "success" || !result.params?.id_token) {
+  if (result.type !== "success" || !result.url) {
     const reason =
       result.type !== "success"
         ? `Auth session finished with type "${result.type}".`
-        : "No id_token was returned by Google.";
+        : "No URL was returned by Google.";
     throw new Error(`Google sign-in failed: ${reason}`);
   }
 
-  const credential = GoogleAuthProvider.credential(result.params.id_token);
+  // Extraire l'id_token depuis l'URL de retour
+  const url = new URL(result.url);
+  const params = new URLSearchParams(url.hash.substring(1));
+  const idToken = params.get("id_token");
+
+  if (!idToken) {
+    throw new Error("No id_token was returned by Google.");
+  }
+
+  const credential = GoogleAuthProvider.credential(idToken);
   const userCred = await signInWithCredential(auth, credential);
   return userCred.user;
 };
