@@ -127,13 +127,6 @@ export default function ScanPrescriptionScreen() {
   if (!selectedImage) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.logoIcon}>💊</Text>
-          </View>
-          <Text style={styles.appName}>MediScan</Text>
-        </View>
-
         <View style={styles.content}>
           {/* Icône document */}
           <View style={styles.iconContainer}>
@@ -176,13 +169,6 @@ export default function ScanPrescriptionScreen() {
   // Si une image est sélectionnée - Écran de prévisualisation
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoIcon}>💊</Text>
-        </View>
-        <Text style={styles.appName}>MediScan</Text>
-      </View>
-
       <View style={styles.previewContent}>
         {/* Image de l'ordonnance */}
         <View style={styles.imageContainer}>
@@ -225,31 +211,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  logoContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#1F2937',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  logoIcon: {
-    fontSize: 24,
-  },
-  appName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
   },
   content: {
     flex: 1,
