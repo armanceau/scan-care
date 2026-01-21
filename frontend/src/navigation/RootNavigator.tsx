@@ -1,12 +1,13 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import type { User } from "firebase/auth";
-import { Pressable, StyleSheet } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
 
 import { DashboardScreen } from "../screens/DashboardScreen";
 import { LoginScreen } from "../screens/LoginScreen";
 import ReminderList from "../screens/ReminderList";
 import ScanPrescriptionScreen from "../screens/ScanPrescriptionScreen";
+import React from "react";
 
 export type RootStackParamList = {
   Login: undefined;
@@ -31,13 +32,22 @@ export const RootNavigator = ({
   onAuthStateChange,
 }: RootNavigatorProps) => {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        headerShadowVisible: false,
+        headerStyle: {
+          backgroundColor: "#fff",
+        },
+      }}
+    >
       {user ? (
         <>
           <Stack.Screen
             name="Dashboard"
             options={{
-              title: "Tableau de bord",
+              title: "",
+              headerTitle: "",
+              headerTitleAlign: "center",
               headerRight: () => (
                 <Pressable
                   style={styles.headerAction}
@@ -46,6 +56,14 @@ export const RootNavigator = ({
                 >
                   <FontAwesome name="sign-out" size={20} color="#fff" />
                 </Pressable>
+              ),
+              headerLeft: () => (
+                <View style={styles.header}>
+                  <View style={styles.logoContainer}>
+                    <Text style={styles.logoIcon}>💊</Text>
+                  </View>
+                  <Text style={styles.appName}>Scan Care</Text>
+                </View>
               ),
             }}
           >
@@ -67,7 +85,31 @@ export const RootNavigator = ({
           <Stack.Screen
             name="ScanPrescriptionScreen"
             component={ScanPrescriptionScreen}
-            options={{ title: "Scan d'ordonnance" }}
+            options={({ navigation }) => ({
+              title: "",
+              headerTitle: "",
+              headerTitleAlign: "center",
+              headerRight: () => (
+                <Pressable
+                  style={styles.headerAction}
+                  onPress={onSignOut}
+                  disabled={submitting}
+                >
+                  <FontAwesome name="sign-out" size={20} color="#fff" />
+                </Pressable>
+              ),
+              headerLeft: () => (
+                <Pressable
+                  style={styles.header}
+                  onPress={() => navigation.navigate("Dashboard")}
+                >
+                  <View style={styles.logoContainer}>
+                    <Text style={styles.logoIcon}>💊</Text>
+                  </View>
+                  <Text style={styles.appName}>Scan Care</Text>
+                </Pressable>
+              ),
+            })}
           />
         </>
       ) : (
@@ -88,11 +130,38 @@ const styles = StyleSheet.create({
   headerAction: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: "#000",
-    borderRadius: 8,
+    backgroundColor: "#CA0B00",
+    borderRadius: 10,
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerActionText: {
     color: "#fff",
     fontWeight: "600",
   },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    zIndex: 100,
+  },
+  logoContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#1F2937",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  logoIcon: {
+    fontSize: 24,
+  },
+  appName: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#111827",
+  },
+  headerScreen: {},
 });

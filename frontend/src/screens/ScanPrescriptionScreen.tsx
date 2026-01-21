@@ -10,14 +10,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { analyzePrescriptionImage, type Medication, type PrescriptionAnalysis } from '../services/mistral';
+import { analyzePrescriptionImage, type PrescriptionAnalysis } from '../services/mistral';
 import ResultsScreen from './ResultsScreen';
 
 export default function ScanPrescriptionScreen() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<PrescriptionAnalysis | null>(null);
-  const [rawResponse, setRawResponse] = useState<string>('');
 
   // Demander les permissions
   const requestPermissions = async () => {
@@ -113,12 +112,6 @@ export default function ScanPrescriptionScreen() {
   if (!selectedImage) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.logoIcon}>💊</Text>
-          </View>
-          <Text style={styles.appName}>MediScan</Text>
-        </View>
 
         <View style={styles.content}>
           {/* Icône document */}
@@ -133,7 +126,7 @@ export default function ScanPrescriptionScreen() {
 
           {/* Description */}
           <Text style={styles.description}>
-            Prenez une photo de votre ordonnance pour extraire automatiquement vos médicaments et créer des rappels
+            Prenez une photo de votre ordonnance pour extraire automatiquement vos médicaments et créer vos rappels.
           </Text>
 
           {/* Boutons */}
@@ -162,13 +155,6 @@ export default function ScanPrescriptionScreen() {
   // Si une image est sélectionnée - Écran de prévisualisation
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoIcon}>💊</Text>
-        </View>
-        <Text style={styles.appName}>MediScan</Text>
-      </View>
-
       <View style={styles.previewContent}>
         {/* Image de l'ordonnance */}
         <View style={styles.imageContainer}>
@@ -211,14 +197,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   logoContainer: {
     width: 48,
