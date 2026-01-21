@@ -45,7 +45,7 @@ const ReminderList: React.FC = () => {
         nom: 'Ibuprofène',
         dosage: '400 mg',
         dosageValue: '400',
-        quantity: '1 comprimé',
+        quantity: '1 comprimé(s)',
         quantityValue: '1',
         duration: '3 jours',
         durationValue: '3',
@@ -57,7 +57,7 @@ const ReminderList: React.FC = () => {
         nom: 'Doliprane',
         dosage: '400 mg',
         dosageValue: '400',
-        quantity: '1 comprimé',
+        quantity: '1 comprimé(s)',
         quantityValue: '1',
         duration: '3 jours',
         durationValue: '3',
@@ -83,7 +83,7 @@ const ReminderList: React.FC = () => {
             return {
               ...editForm,
               dosage: `${editForm.dosageValue} mg`,
-              quantity: `${editForm.quantityValue} comprimé`,
+              quantity: `${editForm.quantityValue} comprimé(s)`,
               duration: `${editForm.durationValue} jours`,
             };
           }
@@ -249,7 +249,7 @@ const ReminderList: React.FC = () => {
                       keyboardType="numeric"
                       placeholderTextColor="#9ca3af"
                     />
-                    <Text style={styles.unit}>comprimé</Text>
+                    <Text style={styles.unit}>comprimé(s)</Text>
                   </View>
                 </View>
 
