@@ -11,6 +11,19 @@ import {
   getReactNativePersistence,
   initializeAuth,
 } from "firebase/auth";
+import { 
+  getFirestore,
+  collection,
+  addDoc,
+  query,
+  where,
+  getDocs,
+  updateDoc,
+  doc,
+  deleteDoc,
+  Timestamp,
+} from "firebase/firestore";
+import type { Medication, PrescriptionAnalysis } from "./mistral";
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -42,4 +55,92 @@ const auth = isNative
     })
   : getAuth(app);
 
-export { app, auth };
+const db = getFirestore(app);
+
+// Types pour Firestore
+export interface StoredPrescription {
+  userId: string;
+  medications: Medication[];
+  doctor?: string;
+  date?: string;
+  patient?: string;
+  prescriptionDate: Timestamp;
+  imageUrl?: string;
+}
+
+/**
+ * Enregistrer une ordonnance avec ses médicaments en Firestore
+ */
+export async function savePrescriptionToFirestore(
+  userId: string,
+  prescription: PrescriptionAnalysis,
+  imageUrl?: string
+): Promise<string> {
+  try {
+    const docRef = await addDoc(collection(db, "prescriptions"), {
+      userId,
+      medications: prescription.medications,
+      doctor: prescription.doctor || null,
+      date: prescription.date || null,
+      patient: prescription.patient || null,
+      prescriptionDate: Timestamp.now(),
+      imageUrl: imageUrl || null,
+    } as StoredPrescription);
+
+    console.log("✅ Ordonnance enregistrée avec ID:", docRef.id);
+    return docRef.id;
+  } catch (error) {
+    console.error("❌ Erreur lors de l'enregistrement:", error);
+    throw error;
+  }
+}
+
+/**
+ * Récupérer les ordonnances de l'utilisateur
+ */
+export async function getUserPrescriptions(userId: string): Promise<(StoredPrescription & { id: string })[]> {
+  try {
+    const q = query(collection(db, "prescriptions"), where("userId", "==", userId));
+    const querySnapshot = await getDocs(q);
+    
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    } as StoredPrescription & { id: string }));
+  } catch (error) {
+    console.error("❌ Erreur lors de la récupération:", error);
+    throw error;
+  }
+}
+
+/**
+ * Mettre à jour une ordonnance
+ */
+export async function updatePrescriptionInFirestore(
+  prescriptionId: string,
+  updatedData: Partial<StoredPrescription>
+): Promise<void> {
+  try {
+    const docRef = doc(db, "prescriptions", prescriptionId);
+    await updateDoc(docRef, updatedData);
+    console.log("✅ Ordonnance mise à jour:", prescriptionId);
+  } catch (error) {
+    console.error("❌ Erreur lors de la mise à jour:", error);
+    throw error;
+  }
+}
+
+/**
+ * Supprimer une ordonnance
+ */
+export async function deletePrescriptionFromFirestore(prescriptionId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, "prescriptions", prescriptionId));
+    console.log("✅ Ordonnance supprimée:", prescriptionId);
+  } catch (error) {
+    console.error("❌ Erreur lors de la suppression:", error);
+    throw error;
+  }
+}
+
+export { app, auth, db };

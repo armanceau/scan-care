@@ -1,10 +1,10 @@
-import { LoginScreen } from "./src/screens/LoginScreen";
+import { NavigationContainer } from "@react-navigation/native";
 import type { User } from "firebase/auth";
 import { useEffect, useState } from "react";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
+import { RootNavigator } from "./src/navigation/RootNavigator";
 import { watchAuthState } from "./src/services/auth";
-import { Pressable, View, Text, StyleSheet } from "react-native";
-import ReminderList from "./src/screens/ReminderList";
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -15,8 +15,10 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = watchAuthState((authUser) => {
       setUser(authUser);
+      setLoading(false);
       handleAuthStateChange(authUser);
     });
+
     return unsubscribe;
   }, []);
 
@@ -43,46 +45,47 @@ export default function App() {
     }
   };
 
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#2563eb" />
+        <Text style={styles.loadingText}>Chargement...</Text>
+      </View>
+    );
+  }
+
   return (
-    <>
-      {user ? (
-        <View style={styles.container}>
-          <ReminderList />
-          <Pressable
-            style={styles.button}
-            onPress={handleSignOut}
-            disabled={submitting}
-          >
-            <Text style={styles.buttonText}>
-              {submitting ? "Déconnexion..." : "Se déconnecter"}
-            </Text>
-          </Pressable>
-        </View>
-      ) : (
-        <LoginScreen
-          onAuthStateChange={handleAuthStateChange}
-          onSignOut={() => console.log("Utilisateur déconnecté")}
-        />
-      )}
-    </>
+    <NavigationContainer>
+      <RootNavigator
+        user={user}
+        submitting={submitting}
+        onSignOut={handleSignOut}
+        onAuthStateChange={handleAuthStateChange}
+      />
+    </NavigationContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  centered: {
     flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    backgroundColor: "#fff",
   },
-  button: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+  loadingText: {
+    color: "#64748b",
+    fontWeight: "600",
+  },
+  headerAction: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     backgroundColor: "#000",
     borderRadius: 8,
-    alignItems: "center",
-    margin: 20,
   },
-  buttonText: {
+  headerActionText: {
     color: "#fff",
-    fontSize: 16,
     fontWeight: "600",
   },
 });

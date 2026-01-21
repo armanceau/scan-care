@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 32,
     paddingBottom: 24,
-    justifyContent: "space-between",
+    justifyContent: "center",
   },
   card: {
     backgroundColor: "#ffffff",
