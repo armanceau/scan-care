@@ -42,11 +42,6 @@ export default function ScanPrescriptionScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      console.log('📸 Photo prise:');
-      console.log('  - URI:', result.assets[0].uri);
-      console.log('  - Width:', result.assets[0].width);
-      console.log('  - Height:', result.assets[0].height);
-      console.log('  - Type:', result.assets[0].type);
       setSelectedImage(result.assets[0].uri);
     }
   };
@@ -66,11 +61,6 @@ export default function ScanPrescriptionScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      console.log('🖼️ Image sélectionnée depuis la galerie:');
-      console.log('  - URI:', result.assets[0].uri);
-      console.log('  - Width:', result.assets[0].width);
-      console.log('  - Height:', result.assets[0].height);
-      console.log('  - Type:', result.assets[0].type);
       setSelectedImage(result.assets[0].uri);
     }
   };
@@ -81,9 +71,6 @@ export default function ScanPrescriptionScreen() {
 
     setIsProcessing(true);
     try {
-      console.log('🔍 Début de l\'extraction...');
-      console.log('📍 URI à analyser:', selectedImage);
-      
       // Appel à l'API Mistral
       const result = await analyzePrescriptionImage(selectedImage);
       
@@ -99,7 +86,6 @@ export default function ScanPrescriptionScreen() {
         console.log('✅ Affichage des résultats:', result.medications.length, 'médicaments');
       }
     } catch (error) {
-      console.error('❌ Erreur lors de l\'extraction:', error);
       Alert.alert(
         'Erreur',
         error instanceof Error ? error.message : 'Impossible d\'analyser l\'ordonnance.',

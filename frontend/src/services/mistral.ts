@@ -29,19 +29,14 @@ export interface PrescriptionAnalysis {
  */
 async function imageToBase64(imageUri: string): Promise<string> {
   try {
-    console.log('🔄 Conversion de l\'image en base64...');
-    console.log('📍 URI original:', imageUri);
-    
     // Vérifier que l'URI existe
     if (!imageUri) {
       throw new Error('URI de l\'image vide ou undefined');
     }
 
     // Obtenir les infos du fichier pour vérifier qu'il existe
-    console.log('🔍 Vérification de l\'existence du fichier...');
     const fileInfo = await FileSystem.getInfoAsync(imageUri);
-    console.log('📋 Info fichier:', JSON.stringify(fileInfo, null, 2));
-    
+
     if (!fileInfo.exists) {
       throw new Error('Le fichier image n\'existe pas à l\'URI: ' + imageUri);
     }
@@ -51,7 +46,6 @@ async function imageToBase64(imageUri: string): Promise<string> {
       throw new Error('L\'URI pointe vers un dossier, pas un fichier');
     }
 
-    console.log('📖 Lecture du fichier en base64...');
     const base64 = await FileSystem.readAsStringAsync(imageUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
@@ -59,10 +53,6 @@ async function imageToBase64(imageUri: string): Promise<string> {
     if (!base64 || base64.length === 0) {
       throw new Error('La conversion base64 a retourné une valeur vide');
     }
-    
-    console.log('✅ Image convertie en base64');
-    console.log('📏 Taille:', base64.length, 'caractères');
-    
     return base64;
   } catch (error) {
     console.error('');
@@ -77,9 +67,6 @@ async function imageToBase64(imageUri: string): Promise<string> {
     if (error && typeof error === 'object' && 'code' in error) {
       console.error('🔢 Code erreur:', (error as any).code);
     }
-    
-    console.error('═══════════════════════════════════════════════');
-    console.error('');
     throw new Error('Impossible de lire l\'image: ' + (error instanceof Error ? error.message : JSON.stringify(error)));
   }
 }
@@ -173,15 +160,8 @@ Si aucun médicament n'est détecté, retourne : {"medications": []}`;
       }
     );
 
-    console.log('✅ RÉPONSE REÇUE');
-    console.log('═══════════════════════════════════════════════');
-
     // Extraire le contenu de la réponse
     const content = response.data.choices[0]?.message?.content || '';
-    console.log('📄 CONTENU MISTRAL:');
-    console.log(content);
-    console.log('═══════════════════════════════════════════════');
-    console.log('');
 
     // Parser le JSON
     try {
@@ -192,31 +172,22 @@ Si aucun médicament n'est détecté, retourne : {"medications": []}`;
         .trim();
       
       const result: PrescriptionAnalysis = JSON.parse(cleanContent);
-      
-      console.log('✅ ANALYSE TERMINÉE AVEC SUCCÈS');
-      console.log('═══════════════════════════════════════════════');
       console.log(`💊 ${result.medications.length} médicament(s) détecté(s)`);
       console.log('📊 RÉSULTAT:');
       console.log(JSON.stringify(result, null, 2));
-      console.log('═══════════════════════════════════════════════');
-      console.log('');
       
       return result;
     } catch (parseError) {
       console.error('');
       console.error('❌ ERREUR DE PARSING JSON');
-      console.error('═══════════════════════════════════════════════');
       console.error('Erreur:', parseError);
       console.error('Contenu reçu:', content);
-      console.error('═══════════════════════════════════════════════');
-      console.error('');
       
       return {
         medications: [],
       };
     }
   } catch (error) {
-    console.error('');
     console.error('❌ ERREUR LORS DE L\'ANALYSE');
     console.error('═══════════════════════════════════════════════');
     
