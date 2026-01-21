@@ -2,22 +2,27 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
   TouchableOpacity,
   SafeAreaView,
   Alert,
+  ScrollView,
+  ActivityIndicator,
   Modal,
   TextInput,
-  ScrollView,
 } from 'react-native';
+
+//import type firebase
+import type { Medication } from '../services/mistral';
+import { getUserPrescriptions, auth, updatePrescriptionInFirestore, deletePrescriptionFromFirestore } from '../services/firebase';
+
 import Svg, { Path } from 'react-native-svg';
 
-/* =========================
-   Types
-========================= */
+
+//Interface Reminder avec les propriétés des médicaments de Firestore
 interface Reminder {
   id: string;
+  prescriptionId: string;
   nom: string;
   dosage: string;
   dosageValue: string;
@@ -27,318 +32,401 @@ interface Reminder {
   durationValue: string;
   completed: boolean;
   description: string;
+  frequency?: string;
+  instructions?: string;
 }
 
-/* =========================
-   Component
-========================= */
-const ReminderList: React.FC = () => {
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<Reminder | null>(null);
-  const [infoReminder, setInfoReminder] = useState<Reminder | null>(null);
+interface ListPrescription {
+  userId: string;
+  medications: Medication[];
+  doctor?: string;
+  date?: string;
+  patient?: string;
+  prescriptionDate: any;
+  imageUrl?: string;
+  id: string;
+  expandedMedicationId?: string | null;
+}
 
+//component
+const ReminderList: React.FC = () => {
+  const [prescriptions, setPrescriptions] = useState<ListPrescription[]>([]);
+  const [expandedPrescriptions, setExpandedPrescriptions] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState<boolean>(true);
+  const [editingPrescriptionId, setEditingPrescriptionId] = useState<string | null>(null);
+  const [editingMedicationIndex, setEditingMedicationIndex] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<Medication | null>(null);
+
+  //charger prescription 
   useEffect(() => {
-    setReminders([
-      {
-        id: '1',
-        nom: 'Ibuprofène',
-        dosage: '400 mg',
-        dosageValue: '400',
-        quantity: '1 comprimé(s)',
-        quantityValue: '1',
-        duration: '3 jours',
-        durationValue: '3',
-        completed: false,
-        description: 'Médicament utilisé pour soulager la douleur et réduire la fièvre. L\'ibuprofène est un anti-inflammatoire non stéroïdien (AINS) qui aide à réduire l\'inflammation et l\'inconfort causés par diverses conditions.',
-      },
-      {
-        id: '2',
-        nom: 'Doliprane',
-        dosage: '400 mg',
-        dosageValue: '400',
-        quantity: '1 comprimé(s)',
-        quantityValue: '1',
-        duration: '3 jours',
-        durationValue: '3',
-        completed: false,
-        description: 'Médicament utilisé pour soulager la douleur et réduire la fièvre. L\'ibuprofène est un anti-inflammatoire non stéroïdien (AINS) qui aide à réduire l\'inflammation et l\'inconfort causés par diverses conditions.',
-      },
-    ]);
+    const loadPrescriptions = async () => {
+      try {
+        setLoading(true);
+        const currentUser = auth.currentUser;
+        
+        if (!currentUser) {
+          console.warn('Aucun utilisateur connecté');
+          setPrescriptions([]);
+          return;
+        }
+
+        // Récupérer les prescriptions de l'utilisateur
+        const loadedPrescriptions = await getUserPrescriptions(currentUser.uid);
+        setPrescriptions(loadedPrescriptions);
+        console.log('✅ Prescriptions chargées:', loadedPrescriptions.length);
+      } catch (error) {
+        console.error('❌ Erreur lors du chargement des prescriptions:', error);
+        Alert.alert('Erreur', 'Impossible de charger les prescriptions');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPrescriptions();
   }, []);
 
-  const handleEdit = (id: string) => {
-    const reminder = reminders.find((r) => r.id === id);
-    if (reminder) {
-      setEditingId(id);
-      setEditForm({ ...reminder });
+
+  const formatDate = (date: any): string => {
+    if (!date) return 'Date inconnue';
+    try {
+      if (date.toDate) {
+        return date.toDate().toLocaleDateString('fr-FR');
+      }
+      return new Date(date).toLocaleDateString('fr-FR');
+    } catch {
+      return 'Date invalide';
     }
   };
 
-  const handleSaveEdit = () => {
-    if (editForm) {
-      setReminders((prev) =>
-        prev.map((r) => {
-          if (r.id === editingId) {
-            return {
-              ...editForm,
-              dosage: `${editForm.dosageValue} mg`,
-              quantity: `${editForm.quantityValue} comprimé(s)`,
-              duration: `${editForm.durationValue} jours`,
-            };
+
+  const togglePrescriptionExpanded = (prescriptionId: string) => {
+    setExpandedPrescriptions((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(prescriptionId)) {
+        newSet.delete(prescriptionId);
+      } else {
+        newSet.add(prescriptionId);
+      }
+      return newSet;
+    });
+  };
+
+
+  const handleEditMedication = (prescriptionId: string, medicationIndex: number) => {
+    const prescription = prescriptions.find((p) => p.id === prescriptionId);
+    if (prescription?.medications?.[medicationIndex]) {
+      setEditingPrescriptionId(prescriptionId);
+      setEditingMedicationIndex(medicationIndex);
+      setEditForm({ ...prescription.medications[medicationIndex] });
+    }
+  };
+
+  //save medicament data
+  const handleSaveMedication = async () => {
+    if (!editingPrescriptionId || editingMedicationIndex === null || !editForm) return;
+
+    try {
+      const prescription = prescriptions.find((p) => p.id === editingPrescriptionId);
+      if (!prescription) return;
+
+      const updatedMedications = [...prescription.medications];
+      updatedMedications[editingMedicationIndex] = editForm;
+
+      await updatePrescriptionInFirestore(editingPrescriptionId, {
+        medications: updatedMedications,
+      });
+
+      setPrescriptions((prev) =>
+        prev.map((p) => {
+          if (p.id === editingPrescriptionId) {
+            return { ...p, medications: updatedMedications };
           }
-          return r;
+          return p;
         })
       );
-      setEditingId(null);
+
+      setEditingPrescriptionId(null);
+      setEditingMedicationIndex(null);
       setEditForm(null);
+      Alert.alert('Succès', 'Médicament mis à jour');
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour:', error);
+      Alert.alert('Erreur', 'Impossible de mettre à jour le médicament');
     }
   };
 
+
   const handleCancelEdit = () => {
-    setEditingId(null);
+    setEditingPrescriptionId(null);
+    setEditingMedicationIndex(null);
     setEditForm(null);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDeletePrescription = (prescriptionId: string) => {
+    const confirmDelete = () => {
+      deletePrescriptionAsync(prescriptionId);
+    };
+
     Alert.alert(
-      'Supprimer',
-      'Supprimer ce rappel ?',
+      'Supprimer la prescription',
+      'Êtes-vous sûr de vouloir supprimer cette ordonnance et tous ses médicaments?',
       [
         { text: 'Annuler', style: 'cancel' },
         {
           text: 'Supprimer',
           style: 'destructive',
-          onPress: () =>
-            setReminders((prev) =>
-              prev.filter((item) => item.id !== id)
-            ),
+          onPress: confirmDelete,
         },
       ]
     );
   };
 
-  const renderItem = ({ item }: { item: Reminder }) => (
-    <View style={styles.card}>
-      {/* Ligne du haut */}
-      <View style={styles.topRow}>
+  //modale delete 
+  const deletePrescriptionAsync = async (prescriptionId: string) => {
+    try {
+      await deletePrescriptionFromFirestore(prescriptionId);
+      removePrescriptionFromState(prescriptionId);
+      Alert.alert('Succès', 'Prescription supprimée');
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression:', error);
+      Alert.alert('Erreur', 'Impossible de supprimer la prescription');
+    }
+  };
+
+  //delete state
+  const removePrescriptionFromState = (prescriptionId: string) => {
+    setPrescriptions((prev) => prev.filter((p) => p.id !== prescriptionId));
+  };
+  const renderPrescriptionCard = (prescription: ListPrescription) => {
+    const isExpanded = expandedPrescriptions.has(prescription.id);
+    const medicationsCount = prescription.medications?.length || 0;
+
+    return (
+      <View key={prescription.id} style={styles.card}>
         <TouchableOpacity
-          style={[
-            styles.circle,
-            item.completed && styles.circleCompleted,
-          ]}
-        />
+          style={styles.prescriptionHeader}
+          onPress={() => togglePrescriptionExpanded(prescription.id)}
+        >
+          <View style={styles.prescriptionHeaderLeft}>
+            <Text style={styles.prescriptionTitle}>
+              Dr. {prescription.doctor || 'Médecin'}
+            </Text>
+            <Text style={styles.prescriptionDate}>
+              📅 {formatDate(prescription.prescriptionDate)}
+            </Text>
+            <Text style={styles.medicationsCount}>
+              💊 {medicationsCount} médicament{medicationsCount > 1 ? 's' : ''}
+            </Text>
+          </View>
+          <View style={styles.expandIcon}>
+            <Text style={{ fontSize: 20 }}>
+              {isExpanded ? '▼' : '▶'}
+            </Text>
+          </View>
+        </TouchableOpacity>
 
-        <View style={styles.content}>
-          <Text style={styles.medName}>
-            {item.nom.toUpperCase()}
-          </Text>
-          <Text style={styles.dosage}>
-            {item.dosage}
-          </Text>
-        </View>
+        {prescription.patient && (
+          <View style={styles.patientInfo}>
+            <Text style={styles.patientLabel}>Patient:</Text>
+            <Text style={styles.patientValue}>{prescription.patient}</Text>
+          </View>
+        )}
 
-        {/* Actions */}
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleEdit(item.id)}
+        {isExpanded && prescription.medications && (
+          <View style={styles.medicationsContainer}>
+            {prescription.medications.map((medication, index) => (
+              <View key={`${prescription.id}-${medication.name}-${index}`} style={styles.medicationItem}>
+                <View style={styles.medicationNameRow}>
+                  <Text style={styles.medicationName}>
+                    {index + 1}. {medication.name}
+                  </Text>
+                </View>
+                <View style={styles.medicationDetails}>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Dosage:</Text>
+                    <Text style={styles.detailValue}>{medication.dosage}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Fréquence:</Text>
+                    <Text style={styles.detailValue}>{medication.frequency}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Durée:</Text>
+                    <Text style={styles.detailValue}>{medication.duration}</Text>
+                  </View>
+                  {medication.instructions && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Instructions:</Text>
+                      <Text style={styles.detailValue}>
+                        {medication.instructions}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={styles.editMedicationButton}
+                  onPress={() => handleEditMedication(prescription.id, index)}
+                >
+                  <Text style={styles.editMedicationButtonText}>✏️ Éditer</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <View style={styles.cardActions}>
+          <TouchableOpacity 
+            style={styles.actionButtonSmall}
+            onPress={() => handleEditMedication(prescription.id, 0)}
           >
-            <Svg width="24" height="24" viewBox="0 0 24 24">
-              <Path fill="none" stroke="#000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m14.304 4.844l2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565l6.844-6.844a2.015 2.015 0 0 1 2.852 0Z" />
+            <Svg width="18" height="18" viewBox="0 0 24 24">
+              <Path fill="none" stroke="#0F172A" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m14.304 4.844l2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565l6.844-6.844a2.015 2.015 0 0 1 2.852 0Z" />
             </Svg>
+            <Text style={styles.actionButtonText}>Éditer</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleDelete(item.id)}
+          <TouchableOpacity 
+            style={styles.actionButtonSmall}
+            onPress={() => handleDeletePrescription(prescription.id)}
           >
-            <Svg width="24" height="24" viewBox="0 0 24 24">
-              <Path fill="none" stroke="#000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4.687 6.213L6.8 18.976a2.5 2.5 0 0 0 2.466 2.092h3.348m6.698-14.855L17.2 18.976a2.5 2.5 0 0 1-2.466 2.092h-3.348m-1.364-9.952v5.049m3.956-5.049v5.049M2.75 6.213h18.5m-6.473 0v-1.78a1.5 1.5 0 0 0-1.5-1.5h-2.554a1.5 1.5 0 0 0-1.5 1.5v1.78z" />
+            <Svg width="18" height="18" viewBox="0 0 24 24">
+              <Path fill="none" stroke="#E53E3E" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4.687 6.213L6.8 18.976a2.5 2.5 0 0 0 2.466 2.092h3.348m6.698-14.855L17.2 18.976a2.5 2.5 0 0 1-2.466 2.092h-3.348m-1.364-9.952v5.049m3.956-5.049v5.049M2.75 6.213h18.5m-6.473 0v-1.78a1.5 1.5 0 0 0-1.5-1.5h-2.554a1.5 1.5 0 0 0-1.5 1.5v1.78z" />
             </Svg>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.infoButton} onPress={() => setInfoReminder(item)}>
-            <Svg width="24" height="24" viewBox="0 0 24 24">
-              <Path fill="#8E8E93" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m1 15h-2v-6h2v6m0-8h-2V7h2v2z" />
-            </Svg>
+            <Text style={[styles.actionButtonText, { color: '#E53E3E' }]}>Supprimer</Text>
           </TouchableOpacity>
         </View>
       </View>
+    );
+  };
 
-      {/* Ligne du bas */}
-      <View style={styles.bottomRow}>
-        <Text style={styles.meta}>⏱ {item.quantity}</Text>
-        <Text style={styles.meta}>📅 {item.duration}</Text>
-      </View>
-    </View>
-  );
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color="#0F172A" />
+          <Text style={styles.loadingText}>Chargement des prescriptions...</Text>
+        </View>
+      );
+    }
+
+    if (prescriptions.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>Aucune prescription trouvée</Text>
+        </View>
+      );
+    }
+
+    return (
+      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+        {prescriptions.map((prescription) => renderPrescriptionCard(prescription))}
+      </ScrollView>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.headerTitle}>Mes rappels</Text>
 
-      <FlatList
-        data={reminders}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
-      />
+      {renderContent()}
 
-      {/* Modal d'édition */}
       <Modal
-        visible={editingId !== null}
+        visible={editingPrescriptionId !== null && editingMedicationIndex !== null}
         transparent={true}
         animationType="fade"
       >
-        <View style={styles.infoModalOverlay}>
-          <View style={styles.infoModalContent}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
             {editForm && (
-              <ScrollView>
-                {/* Header du modal */}
-                <View style={styles.infoModalHeader}>
-                  <Text style={styles.infoModalTitle}>Éditer le rappel</Text>
+              <ScrollView showsVerticalScrollIndicator={true}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Éditer le médicament</Text>
                   <TouchableOpacity onPress={handleCancelEdit}>
                     <Text style={styles.closeButton}>✕</Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Nom du médicament */}
                 <View style={styles.formGroup}>
                   <Text style={styles.label}>Nom du médicament</Text>
                   <TextInput
                     style={styles.input}
-                    value={editForm.nom}
+                    value={editForm.name}
                     onChangeText={(text) => {
-                      setEditForm({ ...editForm, nom: text });
+                      setEditForm({ ...editForm, name: text });
                     }}
                     placeholder="Nom du médicament"
                     placeholderTextColor="#9ca3af"
                   />
                 </View>
 
-                {/* Dosage */}
                 <View style={styles.formGroup}>
                   <Text style={styles.label}>Dosage</Text>
-                  <View style={styles.inputWithUnit}>
-                    <TextInput
-                      style={styles.editableInput}
-                      value={editForm.dosageValue}
-                      onChangeText={(text) => {
-                        setEditForm({ ...editForm, dosageValue: text });
-                      }}
-                      placeholder="400"
-                      keyboardType="numeric"
-                      placeholderTextColor="#9ca3af"
-                    />
-                    <Text style={styles.unit}>mg</Text>
-                  </View>
+                  <TextInput
+                    style={styles.input}
+                    value={editForm.dosage}
+                    onChangeText={(text) => {
+                      setEditForm({ ...editForm, dosage: text });
+                    }}
+                    placeholder="ex: 500mg"
+                    placeholderTextColor="#9ca3af"
+                  />
                 </View>
 
-                {/* Quantité */}
                 <View style={styles.formGroup}>
-                  <Text style={styles.label}>Quantité</Text>
-                  <View style={styles.inputWithUnit}>
-                    <TextInput
-                      style={styles.editableInput}
-                      value={editForm.quantityValue}
-                      onChangeText={(text) => {
-                        setEditForm({ ...editForm, quantityValue: text });
-                      }}
-                      placeholder="1"
-                      keyboardType="numeric"
-                      placeholderTextColor="#9ca3af"
-                    />
-                    <Text style={styles.unit}>comprimé(s)</Text>
-                  </View>
+                  <Text style={styles.label}>Fréquence</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={editForm.frequency}
+                    onChangeText={(text) => {
+                      setEditForm({ ...editForm, frequency: text });
+                    }}
+                    placeholder="ex: 2 fois par jour"
+                    placeholderTextColor="#9ca3af"
+                  />
                 </View>
 
-                {/* Durée */}
                 <View style={styles.formGroup}>
                   <Text style={styles.label}>Durée</Text>
-                  <View style={styles.inputWithUnit}>
-                    <TextInput
-                      style={styles.editableInput}
-                      value={editForm.durationValue}
-                      onChangeText={(text) => {
-                        setEditForm({ ...editForm, durationValue: text });
-                      }}
-                      placeholder="3"
-                      keyboardType="numeric"
-                      placeholderTextColor="#9ca3af"
-                    />
-                    <Text style={styles.unit}>jours</Text>
-                  </View>
+                  <TextInput
+                    style={styles.input}
+                    value={editForm.duration}
+                    onChangeText={(text) => {
+                      setEditForm({ ...editForm, duration: text });
+                    }}
+                    placeholder="ex: 7 jours"
+                    placeholderTextColor="#9ca3af"
+                  />
                 </View>
 
-                {/* Description - Lecture seule */}
                 <View style={styles.formGroup}>
-                  <Text style={styles.label}>Description</Text>
-                  <View style={[styles.input, styles.readOnlyInput]}>
-                    <Text style={[styles.readOnlyText, styles.descriptionText]}>{editForm.description}</Text>
-                  </View>
+                  <Text style={styles.label}>Instructions</Text>
+                  <TextInput
+                    style={[styles.input, styles.textAreaInput]}
+                    value={editForm.instructions || ''}
+                    onChangeText={(text) => {
+                      setEditForm({ ...editForm, instructions: text });
+                    }}
+                    placeholder="ex: À prendre pendant les repas"
+                    placeholderTextColor="#9ca3af"
+                    multiline={true}
+                    numberOfLines={4}
+                  />
                 </View>
 
-                {/* Bouton Sauvegarder */}
-                <TouchableOpacity
-                  style={styles.saveButton}
-                  onPress={handleSaveEdit}
-                >
-                  <Text style={styles.saveButtonText}>Sauvegarder</Text>
-                </TouchableOpacity>
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal d'information */}
-      <Modal
-        visible={infoReminder !== null}
-        transparent={true}
-        animationType="fade"
-      >
-        <View style={styles.infoModalOverlay}>
-          <View style={styles.infoModalContent}>
-            {infoReminder && (
-              <ScrollView showsVerticalScrollIndicator={true}>
-                <View style={styles.infoModalHeader}>
-                  <Text style={styles.infoModalTitle}>Informations du médicament</Text>
-                  <TouchableOpacity onPress={() => setInfoReminder(null)}>
-                    <Text style={styles.closeButton}>✕</Text>
+                <View style={styles.modalButtonsContainer}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={handleCancelEdit}
+                  >
+                    <Text style={styles.cancelButtonText}>Annuler</Text>
                   </TouchableOpacity>
-                </View>
 
-                <View style={styles.infoSection}>
-                  <Text style={styles.infoLabel}>Nom</Text>
-                  <Text style={styles.infoValue}>{infoReminder.nom}</Text>
-                </View>
-
-                <View style={styles.infoSection}>
-                  <Text style={styles.infoLabel}>Dosage</Text>
-                  <Text style={styles.infoValue}>{infoReminder.dosage}</Text>
-                </View>
-
-                <View style={styles.infoSection}>
-                  <Text style={styles.infoLabel}>Quantité</Text>
-                  <Text style={styles.infoValue}>{infoReminder.quantity}</Text>
-                </View>
-
-                <View style={styles.infoSection}>
-                  <Text style={styles.infoLabel}>Durée</Text>
-                  <Text style={styles.infoValue}>{infoReminder.duration}</Text>
-                </View>
-
-                <View style={styles.infoSection}>
-                  <Text style={styles.infoLabel}>Statut</Text>
-                  <Text style={styles.infoValue}>
-                    {infoReminder.completed ? 'Complété' : 'En cours'}
-                  </Text>
-                </View>
-
-                <View style={styles.infoSection}>
-                  <Text style={styles.infoLabel}>Description</Text>
-                  <Text style={styles.infoValue}>{infoReminder.description}</Text>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.saveButton]}
+                    onPress={handleSaveMedication}
+                  >
+                    <Text style={styles.saveButtonText}>Sauvegarder</Text>
+                  </TouchableOpacity>
                 </View>
               </ScrollView>
             )}
@@ -370,12 +458,37 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
 
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  emptyText: {
+    fontSize: 16,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+
   card: {
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     marginBottom: 12,
     marginHorizontal: 'auto',
     width: '90%',
@@ -386,6 +499,260 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
+  },
+
+  prescriptionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+
+  prescriptionHeaderLeft: {
+    flex: 1,
+  },
+
+  prescriptionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    letterSpacing: 0.3,
+  },
+
+  prescriptionDate: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+
+  medicationsCount: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+
+  expandIcon: {
+    paddingLeft: 16,
+    justifyContent: 'center',
+  },
+
+  patientInfo: {
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingTop: 12,
+    marginTop: 8,
+  },
+
+  patientLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 4,
+  },
+
+  patientValue: {
+    fontSize: 13,
+    color: '#0F172A',
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+
+  medicationsContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    marginTop: 12,
+    paddingTop: 12,
+  },
+
+  medicationItem: {
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+
+  medicationNameRow: {
+    marginBottom: 8,
+  },
+
+  medicationName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    letterSpacing: 0.3,
+  },
+
+  medicationDetails: {
+    marginLeft: 4,
+  },
+
+  detailRow: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+
+  detailLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    minWidth: 80,
+  },
+
+  detailValue: {
+    fontSize: 12,
+    color: '#0F172A',
+    fontWeight: '500',
+    flex: 1,
+  },
+
+  editMedicationButton: {
+    marginTop: 8,
+    paddingVertical: 8,
+    backgroundColor: '#F0F9FF',
+    borderRadius: 6,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E7FF',
+  },
+
+  editMedicationButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+
+  cardActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingTop: 12,
+    marginTop: 8,
+  },
+
+  actionButtonSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    backgroundColor: '#F8FAFC',
+  },
+
+  actionButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+
+  /* Modal Styles */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '90%',
+    maxWidth: 450,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+    maxHeight: '90%',
+  },
+
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+
+  closeButton: {
+    fontSize: 28,
+    color: '#8E8E93',
+    padding: 4,
+  },
+
+  formGroup: {
+    marginBottom: 16,
+  },
+
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
+    marginBottom: 8,
+    letterSpacing: 0.3,
+  },
+
+  input: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#0F172A',
+    backgroundColor: '#F8FAFC',
+  },
+
+  textAreaInput: {
+    textAlignVertical: 'top',
+    minHeight: 80,
+  },
+
+  modalButtonsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
+
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+
+  cancelButton: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+
+  saveButton: {
+    backgroundColor: '#0F172A',
+  },
+
+  saveButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 
   topRow: {
@@ -466,185 +833,5 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginRight: 20,
     fontWeight: '500',
-  },
-
-  /* Modal Styles */
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-
-  modalContent: {
-    flex: 1,
-    padding: 20,
-  },
-
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#000',
-  },
-
-  closeButton: {
-    fontSize: 28,
-    color: '#8E8E93',
-  },
-
-  formGroup: {
-    marginBottom: 16,
-  },
-
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0F172A',
-    marginBottom: 8,
-    letterSpacing: 0.3,
-  },
-
-  input: {
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: '#0F172A',
-    backgroundColor: '#F8FAFC',
-  },
-
-  textAreaInput: {
-    textAlignVertical: 'top',
-  },
-
-  readOnlyInput: {
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-  },
-
-  readOnlyText: {
-    fontSize: 16,
-    color: '#64748b',
-  },
-
-  descriptionText: {
-    lineHeight: 24,
-  },
-
-  inputWithUnit: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 0,
-    borderColor: '#E5E5EA',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#fff',
-  },
-
-  inputSmall: {
-    flex: 1,
-    borderWidth: 0,
-    paddingHorizontal: 0,
-  },
-
-  editableInput: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 0,
-    fontSize: 16,
-    color: '#000',
-  },
-
-  unit: {
-    fontSize: 16,
-    color: '#64748b',
-    fontWeight: '500',
-    marginLeft: 8,
-  },
-
-  saveButton: {
-    backgroundColor: '#0F172A',
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 20,
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-
-  /* Info Modal Styles */
-  infoModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-
-  infoModalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
-    width: '90%',
-    maxWidth: 420,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
-    maxHeight: '85%',
-  },
-
-  infoModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-
-  infoModalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#000',
-  },
-
-  infoSection: {
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-
-  infoLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 6,
-    letterSpacing: 0.3,
-  },
-
-  infoValue: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#0F172A',
-    lineHeight: 22,
   },
 });

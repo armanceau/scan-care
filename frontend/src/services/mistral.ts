@@ -59,6 +59,29 @@ async function imageToBase64(imageUri: string): Promise<string> {
 }
 
 /**
+ * Valider et nettoyer les données de prescription
+ */
+function cleanPrescriptionData(data: any): PrescriptionAnalysis {
+  // Valider et nettoyer les médicaments
+  const medications = Array.isArray(data.medications)
+    ? data.medications.map((med: any) => ({
+        name: String(med.name || '').trim() || 'Médicament inconnu',
+        dosage: String(med.dosage || '').trim() || 'Dosage non spécifié',
+        frequency: String(med.frequency || '').trim() || 'Fréquence non spécifiée',
+        duration: String(med.duration || '').trim() || 'Durée non spécifiée',
+        instructions: String(med.instructions || '').trim() || '',
+      }))
+    : [];
+
+  return {
+    medications,
+    doctor: String(data.doctor || '').trim() || '',
+    date: String(data.date || '').trim() || '',
+    patient: String(data.patient || '').trim() || '',
+  };
+}
+
+/**
  * Analyser une ordonnance avec Mistral AI Vision
  */
 export async function analyzePrescriptionImage(imageUri: string): Promise<PrescriptionAnalysis> {
@@ -140,11 +163,13 @@ Si aucun médicament n'est détecté, retourne : {"medications": []}`;
     try {
       // Nettoyer la réponse
       const cleanContent = content
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
+        .replaceAll('```json\n', '')
+        .replaceAll('```', '')
+        .replaceAll('```json', '')
         .trim();
       
-      const result: PrescriptionAnalysis = JSON.parse(cleanContent);
+      const parsedData = JSON.parse(cleanContent);
+      const result = cleanPrescriptionData(parsedData);
       
       console.log(`✅ Analyse terminée : ${result.medications.length} médicament(s) détecté(s)`);
       
@@ -155,6 +180,9 @@ Si aucun médicament n'est détecté, retourne : {"medications": []}`;
       
       return {
         medications: [],
+        doctor: '',
+        date: '',
+        patient: '',
       };
     }
   } catch (error) {

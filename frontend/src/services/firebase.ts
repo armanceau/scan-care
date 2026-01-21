@@ -61,30 +61,42 @@ const db = getFirestore(app);
 export interface StoredPrescription {
   userId: string;
   medications: Medication[];
-  doctor?: string;
-  date?: string;
-  patient?: string;
+  doctor: string;
+  date: string;
+  patient: string;
   prescriptionDate: Timestamp;
-  imageUrl?: string;
+  imageUrl: string;
 }
 
-/**
- * Enregistrer une ordonnance avec ses médicaments en Firestore
- */
+//nettoyer med eviter undefined
+function cleanMedications(medications: Medication[]): Medication[] {
+  return medications.map((med) => ({
+    name: med.name || '',
+    dosage: med.dosage || '',
+    frequency: med.frequency || '',
+    duration: med.duration || '',
+    instructions: med.instructions || '', // Convertir undefined en string vide
+  }));
+}
+
+//add dans firestore db
 export async function savePrescriptionToFirestore(
   userId: string,
   prescription: PrescriptionAnalysis,
   imageUrl?: string
 ): Promise<string> {
   try {
+    // Nettoyer les médicaments pour éviter les undefined
+    const cleanedMedications = cleanMedications(prescription.medications);
+
     const docRef = await addDoc(collection(db, "prescriptions"), {
       userId,
-      medications: prescription.medications,
-      doctor: prescription.doctor || null,
-      date: prescription.date || null,
-      patient: prescription.patient || null,
+      medications: cleanedMedications,
+      doctor: prescription.doctor || '',
+      date: prescription.date || '',
+      patient: prescription.patient || '',
       prescriptionDate: Timestamp.now(),
-      imageUrl: imageUrl || null,
+      imageUrl: imageUrl || '',
     } as StoredPrescription);
 
     console.log("✅ Ordonnance enregistrée avec ID:", docRef.id);
@@ -95,9 +107,7 @@ export async function savePrescriptionToFirestore(
   }
 }
 
-/**
- * Récupérer les ordonnances de l'utilisateur
- */
+//getter ordo user
 export async function getUserPrescriptions(userId: string): Promise<(StoredPrescription & { id: string })[]> {
   try {
     const q = query(collection(db, "prescriptions"), where("userId", "==", userId));
@@ -113,9 +123,7 @@ export async function getUserPrescriptions(userId: string): Promise<(StoredPresc
   }
 }
 
-/**
- * Mettre à jour une ordonnance
- */
+//update ordo
 export async function updatePrescriptionInFirestore(
   prescriptionId: string,
   updatedData: Partial<StoredPrescription>
@@ -130,9 +138,7 @@ export async function updatePrescriptionInFirestore(
   }
 }
 
-/**
- * Supprimer une ordonnance
- */
+//delete ordo
 export async function deletePrescriptionFromFirestore(prescriptionId: string): Promise<void> {
   try {
     await deleteDoc(doc(db, "prescriptions", prescriptionId));
