@@ -2,11 +2,13 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 type DashboardScreenProps = {
   onOpenReminders?: () => void;
+  onOpenScanPrescription?: () => void;
   userEmail?: string;
 };
 
 export const DashboardScreen = ({
   onOpenReminders,
+  onOpenScanPrescription,
   userEmail,
 }: DashboardScreenProps) => {
   return (
@@ -27,7 +29,7 @@ export const DashboardScreen = ({
           </Text>
           <Pressable
             style={[styles.button, styles.primaryButton]}
-            onPress={onOpenReminders}
+            onPress={onOpenScanPrescription}
           >
             <Text style={styles.buttonText}>Ajouter un rappel</Text>
           </Pressable>

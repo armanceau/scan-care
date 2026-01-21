@@ -1,16 +1,18 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import type { User } from "firebase/auth";
-import { Pressable, StyleSheet, Text } from "react-native";
+import { Pressable, StyleSheet } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
 
 import { DashboardScreen } from "../screens/DashboardScreen";
 import { LoginScreen } from "../screens/LoginScreen";
 import ReminderList from "../screens/ReminderList";
+import ScanPrescriptionScreen from "../screens/ScanPrescriptionScreen";
 
 export type RootStackParamList = {
   Login: undefined;
   Dashboard: undefined;
   RemindersList: undefined;
+  ScanPrescriptionScreen: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -51,6 +53,9 @@ export const RootNavigator = ({
               <DashboardScreen
                 userEmail={user?.email ?? undefined}
                 onOpenReminders={() => navigation.navigate("RemindersList")}
+                onOpenScanPrescription={() =>
+                  navigation.navigate("ScanPrescriptionScreen")
+                }
               />
             )}
           </Stack.Screen>
@@ -58,6 +63,11 @@ export const RootNavigator = ({
             name="RemindersList"
             component={ReminderList}
             options={{ title: "Mes rappels" }}
+          />
+          <Stack.Screen
+            name="ScanPrescriptionScreen"
+            component={ScanPrescriptionScreen}
+            options={{ title: "Scan d'ordonnance" }}
           />
         </>
       ) : (

@@ -18,6 +18,7 @@ export default function App() {
       setLoading(false);
       handleAuthStateChange(authUser);
     });
+
     return unsubscribe;
   }, []);
 
