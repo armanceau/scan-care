@@ -7,9 +7,6 @@ import { RootNavigator } from "./src/navigation/RootNavigator";
 import { watchAuthState } from "./src/services/auth";
 
 export default function App() {
-  const [mode, setMode] = useState<AuthMode>("signin");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
