@@ -20,68 +20,39 @@ export interface Ordonnance {
   updatedAt: string;
 }
 
-/**
- * Interface pour les données extraites d'une ordonnance
- */
-export interface OrdonnanceData {
-  patientName: string;
-  patientDateOfBirth: string;
-  doctorName: string;
-  doctorSpecialty: string;
-  prescriptionDate: string;
-  ordonnances: Ordonnance[];
-  notes?: string;
-}
-
 
 export async function extractOrdonnanceData(
   imageUri: string
-): Promise<OrdonnanceData> {
-  // TODO: Intégrer avec une API d'OCR réelle
-  // Exemples:
-  // - Google Cloud Vision API
-  // - AWS Textract
-  // - Azure Computer Vision
-  // - Claude Vision API
-  // - Local ML Kit
-
+): Promise<Ordonnance[]> {
   try {
     // Placeholder pour la démo
     // Remplacer par l'appel API réel
-    const mockData: OrdonnanceData = {
-      patientName: "Jean Dupont",
-      patientDateOfBirth: "1990-05-15",
-      doctorName: "Dr. Marie Martin",
-      doctorSpecialty: "Généraliste",
-      prescriptionDate: new Date().toISOString().split("T")[0],
-      ordonnances: [
-        {
-          id: "1",
-          userid: "user123",
-          name: "Amoxicilline",
-          dosage: "500mg",
-          instructions: "À prendre avec un verre d'eau",
-          duration: "7 jours",
-          times: "3 fois par jour",
-          dayOfWeek: "Tous les jours",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: "2",
-          userid: "user123",
-          name: "Paracétamol",
-          dosage: "1000mg",
-          instructions: "Ne pas dépasser 4g par jour",
-          duration: "Au besoin",
-          times: "Toutes les 6 heures",
-          dayOfWeek: "Au besoin",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ],
-      notes: "Consulter si symptômes persistent",
-    };
+    const mockData: Ordonnance[] = [
+      {
+        id: "1",
+        userid: "user123",
+        name: "Amoxicilline",
+        dosage: "500mg",
+        instructions: "À prendre avec un verre d'eau",
+        duration: "7 jours",
+        times: "3 fois par jour",
+        dayOfWeek: "Tous les jours",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: "2",
+        userid: "user123",
+        name: "Paracétamol",
+        dosage: "1000mg",
+        instructions: "Ne pas dépasser 4g par jour",
+        duration: "Au besoin",
+        times: "Toutes les 6 heures",
+        dayOfWeek: "Au besoin",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
 
     // Simuler un délai d'API
     return new Promise((resolve) => {
@@ -94,29 +65,18 @@ export async function extractOrdonnanceData(
 }
 
 
-export function validateOrdonnanceData(data: OrdonnanceData): {
+
+export function validateOrdonnanceData(data: Ordonnance[]): {
   valid: boolean;
   errors: string[];
 } {
   const errors: string[] = [];
 
-  if (!data.patientName?.trim()) {
-    errors.push("Le nom du patient est requis");
-  }
-  if (!data.patientDateOfBirth) {
-    errors.push("La date de naissance est requise");
-  }
-  if (!data.doctorName?.trim()) {
-    errors.push("Le nom du médecin est requis");
-  }
-  if (!data.prescriptionDate) {
-    errors.push("La date de l'ordonnance est requise");
-  }
-  if (!data.ordonnances || data.ordonnances.length === 0) {
+  if (!data || data.length === 0) {
     errors.push("Au moins une ordonnance est requise");
   }
 
-  data.ordonnances?.forEach((ordonnance: Ordonnance, index: number) => {
+  data?.forEach((ordonnance: Ordonnance, index: number) => {
     if (!ordonnance.name?.trim()) {
       errors.push(`Ordonnance ${index + 1}: Le nom est requis`);
     }

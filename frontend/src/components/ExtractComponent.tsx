@@ -9,16 +9,17 @@ import {
   Alert,
   StyleSheet,
 } from "react-native";
+
 import * as ImagePicker from "expo-image-picker";
+
 import {
   extractOrdonnanceData,
   validateOrdonnanceData,
-  type OrdonnanceData,
   type Ordonnance,
 } from "../services/prescriptionExtractor";
 
 type ExtractComponentProps = {
-  onSubmit?: (data: OrdonnanceData) => void;
+  onSubmit?: (data: Ordonnance[]) => void;
   onCancel?: () => void;
 };
 
@@ -26,14 +27,12 @@ const ExtractComponent: React.FC<ExtractComponentProps> = ({
   onSubmit,
   onCancel,
 }) => {
-  const [step, setStep] = useState<"camera" | "edit" | "review">("camera");
-  const [loading, setLoading] = useState(false);
-  const [ordonnanceData, setOrdonnanceData] = useState<OrdonnanceData | null>(null);
+  const [step, setStep] = useState<"camera" | "edit">("camera");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [ordonnances, setOrdonnances] = useState<Ordonnance[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
 
-  /**
-   * Récupère une image de la caméra ou de la galerie
-   */
+ 
   const pickImage = async () => {
     try {
       setLoading(true);
@@ -61,14 +60,12 @@ const ExtractComponent: React.FC<ExtractComponentProps> = ({
     }
   };
 
-  /**
-   * Traite l'image et extrait les données
-   */
+
   const processImage = async (imageUri: string) => {
     try {
       setLoading(true);
       const data = await extractOrdonnanceData(imageUri);
-      setOrdonnanceData(data);
+      setOrdonnances(data);
       setStep("edit");
       setErrors([]);
     } catch (error) {
@@ -82,45 +79,24 @@ const ExtractComponent: React.FC<ExtractComponentProps> = ({
     }
   };
 
-  /**
-   * Met à jour un champ de données
-   */
-  const updateField = (
-    field: keyof OrdonnanceData,
-    value: string | Ordonnance[] | undefined
-  ): void => {
-    if (!ordonnanceData) return;
-    setOrdonnanceData({
-      ...ordonnanceData,
-      [field]: value,
-    });
-  };
-
-  /**
-   * Met à jour une ordonnance
-   */
+ 
   const updateOrdonnance = (
     index: number,
     field: keyof Ordonnance,
     value: string
   ): void => {
-    if (!ordonnanceData || !ordonnanceData.ordonnances) return;
+    if (!ordonnances || ordonnances.length === 0) return;
 
-    const updatedOrdonnances: Ordonnance[] = [...ordonnanceData.ordonnances];
+    const updatedOrdonnances: Ordonnance[] = [...ordonnances];
     updatedOrdonnances[index] = {
       ...updatedOrdonnances[index],
       [field]: value,
     };
 
-    updateField("ordonnances", updatedOrdonnances);
+    setOrdonnances(updatedOrdonnances);
   };
 
-  /**
-   * Ajoute une nouvelle ordonnance
-   */
   const addOrdonnance = (): void => {
-    if (!ordonnanceData) return;
-
     const newOrdonnance: Ordonnance = {
       id: Date.now().toString(),
       userid: "user123",
@@ -134,31 +110,17 @@ const ExtractComponent: React.FC<ExtractComponentProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    updateField("ordonnances", [
-      ...ordonnanceData.ordonnances,
-      newOrdonnance,
-    ]);
+    setOrdonnances([...ordonnances, newOrdonnance]);
   };
 
-  /**
-   * Supprime une ordonnance
-   */
   const removeOrdonnance = (index: number): void => {
-    if (!ordonnanceData) return;
-
-    const updatedOrdonnances = ordonnanceData.ordonnances.filter(
-      (_, i) => i !== index
-    );
-    updateField("ordonnances", updatedOrdonnances);
+    const updatedOrdonnances = ordonnances.filter((_, i) => i !== index);
+    setOrdonnances(updatedOrdonnances);
   };
 
-  /**
-   * Valide et soumet les données
-   */
+ 
   const handleSubmit = (): void => {
-    if (!ordonnanceData) return;
-
-    const validation = validateOrdonnanceData(ordonnanceData);
+    const validation = validateOrdonnanceData(ordonnances);
 
     if (!validation.valid) {
       setErrors(validation.errors);
@@ -170,7 +132,7 @@ const ExtractComponent: React.FC<ExtractComponentProps> = ({
     }
 
     setErrors([]);
-    onSubmit?.(ordonnanceData);
+    onSubmit?.(ordonnances);
   };
 
   // Écran de capture
@@ -204,15 +166,15 @@ const ExtractComponent: React.FC<ExtractComponentProps> = ({
   }
 
   // Écran d'édition
-  if (step === "edit" && ordonnanceData) {
+  if (step === "edit" && ordonnances.length > 0) {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Valider les informations</Text>
+        <Text style={styles.title}>Valider les ordonnances</Text>
 
         {errors.length > 0 && (
           <View style={styles.errorBox}>
             <Text style={styles.errorTitle}>Erreurs détectées:</Text>
-            {errors.map((error, index) => (
+            {errors.map((error: string, index: number) => (
               <Text key={index} style={styles.errorText}>
                 • {error}
               </Text>
@@ -220,77 +182,14 @@ const ExtractComponent: React.FC<ExtractComponentProps> = ({
           </View>
         )}
 
-        {/* Section Patient */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>👤 Patient</Text>
+          <Text style={styles.sectionTitle}>Ordonnances</Text>
 
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Nom</Text>
-            <TextInput
-              style={styles.input}
-              value={ordonnanceData.patientName}
-              onChangeText={(value) => updateField("patientName", value)}
-              placeholder="Nom du patient"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Date de naissance</Text>
-            <TextInput
-              style={styles.input}
-              value={ordonnanceData.patientDateOfBirth}
-              onChangeText={(value) =>
-                updateField("patientDateOfBirth", value)
-              }
-              placeholder="YYYY-MM-DD"
-            />
-          </View>
-        </View>
-
-        {/* Section Médecin */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>👨‍⚕️ Médecin</Text>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Nom</Text>
-            <TextInput
-              style={styles.input}
-              value={ordonnanceData.doctorName}
-              onChangeText={(value) => updateField("doctorName", value)}
-              placeholder="Nom du médecin"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Spécialité</Text>
-            <TextInput
-              style={styles.input}
-              value={ordonnanceData.doctorSpecialty}
-              onChangeText={(value) => updateField("doctorSpecialty", value)}
-              placeholder="Spécialité"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Date de l'ordonnance</Text>
-            <TextInput
-              style={styles.input}
-              value={ordonnanceData.prescriptionDate}
-              onChangeText={(value) => updateField("prescriptionDate", value)}
-              placeholder="YYYY-MM-DD"
-            />
-          </View>
-        </View>
-
-        {/* Section Ordonnances */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>💊 Ordonnances</Text>
-
-          {ordonnanceData.ordonnances.map((ordonnance, index) => (
+          {ordonnances.map((ordonnance: Ordonnance, index: number) => (
             <View key={index} style={styles.medicationCard}>
               <View style={styles.medicationHeader}>
                 <Text style={styles.medicationNumber}>Ordonnance {index + 1}</Text>
-                {ordonnanceData.ordonnances.length > 1 && (
+                {ordonnances.length > 1 && (
                   <TouchableOpacity onPress={() => removeOrdonnance(index)}>
                     <Text style={styles.removeButton}>✕</Text>
                   </TouchableOpacity>
@@ -381,23 +280,6 @@ const ExtractComponent: React.FC<ExtractComponentProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Section Notes */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📝 Notes</Text>
-
-          <View style={styles.formGroup}>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={ordonnanceData.notes}
-              onChangeText={(value) => updateField("notes", value)}
-              placeholder="Notes supplémentaires"
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-        </View>
-
-        {/* Boutons d'action */}
         <View style={styles.actionButtons}>
           <TouchableOpacity
             style={styles.primaryButton}
@@ -409,7 +291,7 @@ const ExtractComponent: React.FC<ExtractComponentProps> = ({
           <TouchableOpacity
             style={styles.secondaryButton}
             onPress={() => {
-              setOrdonnanceData(null);
+              setOrdonnances([]);
               setStep("camera");
               setErrors([]);
             }}
