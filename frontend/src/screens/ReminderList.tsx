@@ -2,22 +2,27 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
   TouchableOpacity,
   SafeAreaView,
   Alert,
+  ScrollView,
+  ActivityIndicator,
   Modal,
   TextInput,
-  ScrollView,
 } from 'react-native';
+
+//import type firebase
+import type { Medication } from '../services/mistral';
+import { getUserPrescriptions, auth, updatePrescriptionInFirestore, deletePrescriptionFromFirestore } from '../services/firebase';
+
 import Svg, { Path } from 'react-native-svg';
 
-/* =========================
-   Types
-========================= */
+
+//Interface Reminder avec les propriétés des médicaments de Firestore
 interface Reminder {
   id: string;
+  prescriptionId: string;
   nom: string;
   dosage: string;
   dosageValue: string;
@@ -27,539 +32,401 @@ interface Reminder {
   durationValue: string;
   completed: boolean;
   description: string;
+  frequency?: string;
+  instructions?: string;
 }
 
-interface Prescription {
+interface ListPrescription {
+  userId: string;
+  medications: Medication[];
+  doctor?: string;
+  date?: string;
+  patient?: string;
+  prescriptionDate: any;
+  imageUrl?: string;
   id: string;
-  nom: string;
-  date: string;
-  medicaments: Reminder[];
+  expandedMedicationId?: string | null;
 }
 
-/* =========================
-   Component
-========================= */
+//component
 const ReminderList: React.FC = () => {
-  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
-  const [expandedPrescriptionId, setExpandedPrescriptionId] = useState<string | null>(null);
+  const [prescriptions, setPrescriptions] = useState<ListPrescription[]>([]);
+  const [expandedPrescriptions, setExpandedPrescriptions] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState<boolean>(true);
   const [editingPrescriptionId, setEditingPrescriptionId] = useState<string | null>(null);
-  const [editPrescriptionForm, setEditPrescriptionForm] = useState<Prescription | null>(null);
-  const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<Reminder | null>(null);
-  const [infoReminder, setInfoReminder] = useState<Reminder | null>(null);
+  const [editingMedicationIndex, setEditingMedicationIndex] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<Medication | null>(null);
 
+  //charger prescription 
   useEffect(() => {
-    setPrescriptions([
-      {
-        id: 'p1',
-        nom: 'Ordonnance du Dr. Martin',
-        date: '21/01/2026',
-        medicaments: [
-          {
-            id: '1',
-            nom: 'Ibuprofène',
-            dosage: '400 mg',
-            dosageValue: '400',
-            quantity: '1 comprimé(s)',
-            quantityValue: '1',
-            duration: '3 jours',
-            durationValue: '3',
-            completed: false,
-            description: 'Médicament utilisé pour soulager la douleur et réduire la fièvre. L\'ibuprofène est un anti-inflammatoire non stéroïdien (AINS) qui aide à réduire l\'inflammation et l\'inconfort causés par diverses conditions.',
-          },
-          {
-            id: '2',
-            nom: 'Doliprane',
-            dosage: '500 mg',
-            dosageValue: '500',
-            quantity: '1 comprimé(s)',
-            quantityValue: '1',
-            duration: '5 jours',
-            durationValue: '5',
-            completed: false,
-            description: 'Médicament utilisé pour soulager la douleur et réduire la fièvre.',
-          },
-        ],
-      },
-    ]);
+    const loadPrescriptions = async () => {
+      try {
+        setLoading(true);
+        const currentUser = auth.currentUser;
+        
+        if (!currentUser) {
+          console.warn('Aucun utilisateur connecté');
+          setPrescriptions([]);
+          return;
+        }
+
+        // Récupérer les prescriptions de l'utilisateur
+        const loadedPrescriptions = await getUserPrescriptions(currentUser.uid);
+        setPrescriptions(loadedPrescriptions);
+        console.log('✅ Prescriptions chargées:', loadedPrescriptions.length);
+      } catch (error) {
+        console.error('❌ Erreur lors du chargement des prescriptions:', error);
+        Alert.alert('Erreur', 'Impossible de charger les prescriptions');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPrescriptions();
   }, []);
 
-  const handleEdit = (id: string) => {
-    if (!expandedPrescriptionId) return;
-    const prescription = prescriptions.find((p) => p.id === expandedPrescriptionId);
-    if (!prescription) return;
-    const reminder = prescription.medicaments.find((r) => r.id === id);
-    if (reminder) {
-      setEditingReminderId(id);
-      setEditForm({ ...reminder });
+
+  const formatDate = (date: any): string => {
+    if (!date) return 'Date inconnue';
+    try {
+      if (date.toDate) {
+        return date.toDate().toLocaleDateString('fr-FR');
+      }
+      return new Date(date).toLocaleDateString('fr-FR');
+    } catch {
+      return 'Date invalide';
     }
   };
 
-  const handleSaveEdit = () => {
-    if (editForm && expandedPrescriptionId && editingReminderId) {
-      const updatedPrescriptions = prescriptions.map((p) => {
-        if (p.id === expandedPrescriptionId) {
-          const updatedMedicaments = p.medicaments.map((r) => {
-            if (r.id === editingReminderId) {
-              return {
-                ...editForm,
-                dosage: `${editForm.dosageValue} mg`,
-                quantity: `${editForm.quantityValue} comprimé(s)`,
-                duration: `${editForm.durationValue} jours`,
-              };
-            }
-            return r;
-          });
-          return {
-            ...p,
-            medicaments: updatedMedicaments,
-          };
-        }
-        return p;
-      });
-      
-      setPrescriptions(updatedPrescriptions);
-      setEditingReminderId(null);
-      setEditForm(null);
+
+  const togglePrescriptionExpanded = (prescriptionId: string) => {
+    setExpandedPrescriptions((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(prescriptionId)) {
+        newSet.delete(prescriptionId);
+      } else {
+        newSet.add(prescriptionId);
+      }
+      return newSet;
+    });
+  };
+
+
+  const handleEditMedication = (prescriptionId: string, medicationIndex: number) => {
+    const prescription = prescriptions.find((p) => p.id === prescriptionId);
+    if (prescription?.medications?.[medicationIndex]) {
+      setEditingPrescriptionId(prescriptionId);
+      setEditingMedicationIndex(medicationIndex);
+      setEditForm({ ...prescription.medications[medicationIndex] });
     }
   };
+
+  //save medicament data
+  const handleSaveMedication = async () => {
+    if (!editingPrescriptionId || editingMedicationIndex === null || !editForm) return;
+
+    try {
+      const prescription = prescriptions.find((p) => p.id === editingPrescriptionId);
+      if (!prescription) return;
+
+      const updatedMedications = [...prescription.medications];
+      updatedMedications[editingMedicationIndex] = editForm;
+
+      await updatePrescriptionInFirestore(editingPrescriptionId, {
+        medications: updatedMedications,
+      });
+
+      setPrescriptions((prev) =>
+        prev.map((p) => {
+          if (p.id === editingPrescriptionId) {
+            return { ...p, medications: updatedMedications };
+          }
+          return p;
+        })
+      );
+
+      setEditingPrescriptionId(null);
+      setEditingMedicationIndex(null);
+      setEditForm(null);
+      Alert.alert('Succès', 'Médicament mis à jour');
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour:', error);
+      Alert.alert('Erreur', 'Impossible de mettre à jour le médicament');
+    }
+  };
+
 
   const handleCancelEdit = () => {
-    setEditingReminderId(null);
+    setEditingPrescriptionId(null);
+    setEditingMedicationIndex(null);
     setEditForm(null);
   };
 
-  const handleDelete = (id: string) => {
-    if (!expandedPrescriptionId) return;
+  const handleDeletePrescription = (prescriptionId: string) => {
+    const confirmDelete = () => {
+      deletePrescriptionAsync(prescriptionId);
+    };
+
     Alert.alert(
-      'Supprimer',
-      'Supprimer ce médicament ?',
+      'Supprimer la prescription',
+      'Êtes-vous sûr de vouloir supprimer cette ordonnance et tous ses médicaments?',
       [
         { text: 'Annuler', style: 'cancel' },
         {
           text: 'Supprimer',
           style: 'destructive',
-          onPress: () => {
-            setPrescriptions((prev) =>
-              prev.map((p) => {
-                if (p.id === expandedPrescriptionId) {
-                  return {
-                    ...p,
-                    medicaments: p.medicaments.filter((r) => r.id !== id),
-                  };
-                }
-                return p;
-              })
-            );
-          },
+          onPress: confirmDelete,
         },
       ]
     );
   };
 
-  const handleEditPrescription = (id: string) => {
-    const prescription = prescriptions.find((p) => p.id === id);
-    if (prescription) {
-      setEditingPrescriptionId(id);
-      setEditPrescriptionForm({ ...prescription });
+  //modale delete 
+  const deletePrescriptionAsync = async (prescriptionId: string) => {
+    try {
+      await deletePrescriptionFromFirestore(prescriptionId);
+      removePrescriptionFromState(prescriptionId);
+      Alert.alert('Succès', 'Prescription supprimée');
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression:', error);
+      Alert.alert('Erreur', 'Impossible de supprimer la prescription');
     }
   };
 
-  const handleSaveEditPrescription = () => {
-    if (editPrescriptionForm && editingPrescriptionId) {
-      const updatedPrescriptions = prescriptions.map((p) => {
-        if (p.id === editingPrescriptionId) {
-          return {
-            ...editPrescriptionForm,
-          };
-        }
-        return p;
-      });
-      
-      setPrescriptions(updatedPrescriptions);
-      setEditingPrescriptionId(null);
-      setEditPrescriptionForm(null);
+  //delete state
+  const removePrescriptionFromState = (prescriptionId: string) => {
+    setPrescriptions((prev) => prev.filter((p) => p.id !== prescriptionId));
+  };
+  const renderPrescriptionCard = (prescription: ListPrescription) => {
+    const isExpanded = expandedPrescriptions.has(prescription.id);
+    const medicationsCount = prescription.medications?.length || 0;
+
+    return (
+      <View key={prescription.id} style={styles.card}>
+        <TouchableOpacity
+          style={styles.prescriptionHeader}
+          onPress={() => togglePrescriptionExpanded(prescription.id)}
+        >
+          <View style={styles.prescriptionHeaderLeft}>
+            <Text style={styles.prescriptionTitle}>
+              Dr. {prescription.doctor || 'Médecin'}
+            </Text>
+            <Text style={styles.prescriptionDate}>
+              📅 {formatDate(prescription.prescriptionDate)}
+            </Text>
+            <Text style={styles.medicationsCount}>
+              💊 {medicationsCount} médicament{medicationsCount > 1 ? 's' : ''}
+            </Text>
+          </View>
+          <View style={styles.expandIcon}>
+            <Text style={{ fontSize: 20 }}>
+              {isExpanded ? '▼' : '▶'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {prescription.patient && (
+          <View style={styles.patientInfo}>
+            <Text style={styles.patientLabel}>Patient:</Text>
+            <Text style={styles.patientValue}>{prescription.patient}</Text>
+          </View>
+        )}
+
+        {isExpanded && prescription.medications && (
+          <View style={styles.medicationsContainer}>
+            {prescription.medications.map((medication, index) => (
+              <View key={`${prescription.id}-${medication.name}-${index}`} style={styles.medicationItem}>
+                <View style={styles.medicationNameRow}>
+                  <Text style={styles.medicationName}>
+                    {index + 1}. {medication.name}
+                  </Text>
+                </View>
+                <View style={styles.medicationDetails}>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Dosage:</Text>
+                    <Text style={styles.detailValue}>{medication.dosage}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Fréquence:</Text>
+                    <Text style={styles.detailValue}>{medication.frequency}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Durée:</Text>
+                    <Text style={styles.detailValue}>{medication.duration}</Text>
+                  </View>
+                  {medication.instructions && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Instructions:</Text>
+                      <Text style={styles.detailValue}>
+                        {medication.instructions}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={styles.editMedicationButton}
+                  onPress={() => handleEditMedication(prescription.id, index)}
+                >
+                  <Text style={styles.editMedicationButtonText}>✏️ Éditer</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <View style={styles.cardActions}>
+          <TouchableOpacity 
+            style={styles.actionButtonSmall}
+            onPress={() => handleEditMedication(prescription.id, 0)}
+          >
+            <Svg width="18" height="18" viewBox="0 0 24 24">
+              <Path fill="none" stroke="#0F172A" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m14.304 4.844l2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565l6.844-6.844a2.015 2.015 0 0 1 2.852 0Z" />
+            </Svg>
+            <Text style={styles.actionButtonText}>Éditer</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionButtonSmall}
+            onPress={() => handleDeletePrescription(prescription.id)}
+          >
+            <Svg width="18" height="18" viewBox="0 0 24 24">
+              <Path fill="none" stroke="#E53E3E" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4.687 6.213L6.8 18.976a2.5 2.5 0 0 0 2.466 2.092h3.348m6.698-14.855L17.2 18.976a2.5 2.5 0 0 1-2.466 2.092h-3.348m-1.364-9.952v5.049m3.956-5.049v5.049M2.75 6.213h18.5m-6.473 0v-1.78a1.5 1.5 0 0 0-1.5-1.5h-2.554a1.5 1.5 0 0 0-1.5 1.5v1.78z" />
+            </Svg>
+            <Text style={[styles.actionButtonText, { color: '#E53E3E' }]}>Supprimer</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color="#0F172A" />
+          <Text style={styles.loadingText}>Chargement des prescriptions...</Text>
+        </View>
+      );
     }
-  };
 
-  const handleCancelEditPrescription = () => {
-    setEditingPrescriptionId(null);
-    setEditPrescriptionForm(null);
-  };
-
-  /* =========================
-     Rendu des ordonnances
-  ========================= */
-  /* =========================
-     Rendu des médicaments
-  ========================= */
-  const renderMedicamentItem = ({ item }: { item: Reminder }) => (
-    <View style={styles.card}>
-      {/* Ligne du haut */}
-      <View style={styles.topRow}>
-        <View style={styles.circle} />
-        <View style={styles.content}>
-          <Text style={styles.title}>{item.nom}</Text>
-          <Text style={styles.subtitle}>{item.dosage}</Text>
+    if (prescriptions.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>Aucune prescription trouvée</Text>
         </View>
+      );
+    }
 
-        {/* Actions */}
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleEdit(item.id)}
-          >
-            <Svg width="24" height="24" viewBox="0 0 24 24">
-              <Path fill="none" stroke="#000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m14.304 4.844l2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565l6.844-6.844a2.015 2.015 0 0 1 2.852 0Z" />
-            </Svg>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleDelete(item.id)}
-          >
-            <Svg width="24" height="24" viewBox="0 0 24 24">
-              <Path fill="none" stroke="#000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4.687 6.213L6.8 18.976a2.5 2.5 0 0 0 2.466 2.092h3.348m6.698-14.855L17.2 18.976a2.5 2.5 0 0 1-2.466 2.092h-3.348m-1.364-9.952v5.049m3.956-5.049v5.049M2.75 6.213h18.5m-6.473 0v-1.78a1.5 1.5 0 0 0-1.5-1.5h-2.554a1.5 1.5 0 0 0-1.5 1.5v1.78z" />
-            </Svg>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.infoButton} onPress={() => setInfoReminder(item)}>
-            <Svg width="24" height="24" viewBox="0 0 24 24">
-              <Path fill="#8E8E93" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m1 15h-2v-6h2v6m0-8h-2V7h2v2z" />
-            </Svg>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Ligne du bas */}
-      <View style={styles.bottomRow}>
-        <Text style={styles.meta}>⏱ {item.quantity}</Text>
-        <Text style={styles.meta}>📅 {item.duration}</Text>
-      </View>
-    </View>
-  );
+    return (
+      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+        {prescriptions.map((prescription) => renderPrescriptionCard(prescription))}
+      </ScrollView>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.headerTitle}>Mes ordonnances</Text>
-      <FlatList
-        data={prescriptions}
-        renderItem={({ item }) => (
-          <View>
-            <TouchableOpacity
-              style={styles.prescriptionCard}
-              activeOpacity={0.7}
-              onPress={() => setExpandedPrescriptionId(
-                expandedPrescriptionId === item.id ? null : item.id
-              )}
-            >
-              <View style={styles.prescriptionContent}>
-                <Text style={styles.prescriptionTitle}>{item.nom}</Text>
-                <Text style={styles.prescriptionDate}>📅 {item.date}</Text>
-                <Text style={styles.medicamentCount}>
-                  {item.medicaments.length} médicament{item.medicaments.length > 1 ? 's' : ''}
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={styles.editPrescriptionButton}
-                activeOpacity={0.7}
-                onPress={(e) => {
-                  e.stopPropagation?.();
-                  handleEditPrescription(item.id);
-                }}
-              >
-                <Svg width="24" height="24" viewBox="0 0 24 24">
-                  <Path fill="none" stroke="#0F172A" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m14.304 4.844l2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565l6.844-6.844a2.015 2.015 0 0 1 2.852 0Z" />
-                </Svg>
-              </TouchableOpacity>
-              <View style={styles.prescriptionClickArea}>
-  <Svg
-    width={32}
-    height={32}
-    viewBox="0 0 24 24"
-    style={{
-      transform: [
-        { rotate: expandedPrescriptionId === item.id ? '180deg' : '0deg' },
-      ],
-    }}
-  >
-    <Path
-      d="m6 9l6 6l6-6"
-      fill="none"
-      stroke={expandedPrescriptionId === item.id ? '#3B82F6' : '#94A3B8'}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-</View>
+      <Text style={styles.headerTitle}>Mes rappels</Text>
 
-            </TouchableOpacity>
+      {renderContent()}
 
-            {/* Menu déroulant des médicaments */}
-            {expandedPrescriptionId === item.id && (
-              <View style={styles.medicamentsDropdown}>
-                {item.medicaments.map((medicament) => (
-                  <View key={medicament.id}>
-                    {renderMedicamentItem({ item: medicament })}
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
-      />
-
-      {/* Modal d'édition des ordonnances */}
       <Modal
-        visible={editingPrescriptionId !== null}
+        visible={editingPrescriptionId !== null && editingMedicationIndex !== null}
         transparent={true}
         animationType="fade"
       >
-        <View style={styles.infoModalOverlay}>
-          <View style={styles.infoModalContent}>
-            {editPrescriptionForm && (
-              <ScrollView showsVerticalScrollIndicator={true}>
-                {/* Header du modal */}
-                <View style={styles.infoModalHeader}>
-                  <Text style={styles.infoModalTitle}>Éditer l'ordonnance</Text>
-                  <TouchableOpacity onPress={handleCancelEditPrescription}>
-                    <Text style={styles.closeButton}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Nom de l'ordonnance */}
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Nom de l'ordonnance</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={editPrescriptionForm.nom}
-                    onChangeText={(text) => {
-                      setEditPrescriptionForm({ ...editPrescriptionForm, nom: text });
-                    }}
-                    placeholder="Nom de l'ordonnance"
-                    placeholderTextColor="#9ca3af"
-                  />
-                </View>
-
-                {/* Date */}
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Date</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={editPrescriptionForm.date}
-                    onChangeText={(text) => {
-                      setEditPrescriptionForm({ ...editPrescriptionForm, date: text });
-                    }}
-                    placeholder="JJ/MM/AAAA"
-                    placeholderTextColor="#9ca3af"
-                  />
-                </View>
-
-                {/* Nombre de médicaments (lecture seule) */}
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Nombre de médicaments</Text>
-                  <View style={[styles.input, styles.readOnlyInput]}>
-                    <Text style={[styles.readOnlyText]}>
-                      {editPrescriptionForm.medicaments.length} médicament{editPrescriptionForm.medicaments.length > 1 ? 's' : ''}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Boutons */}
-                <View style={styles.buttonGroup}>
-                  <TouchableOpacity
-                    style={[styles.saveButton, styles.cancelButtonStyle]}
-                    onPress={handleCancelEditPrescription}
-                  >
-                    <Text style={styles.cancelButtonText}>Annuler</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.saveButton}
-                    onPress={handleSaveEditPrescription}
-                  >
-                    <Text style={styles.saveButtonText}>Sauvegarder</Text>
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal d'édition */}
-      <Modal
-        visible={editingReminderId !== null}
-        transparent={true}
-        animationType="fade"
-      >
-        <View style={styles.infoModalOverlay}>
-          <View style={styles.infoModalContent}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
             {editForm && (
               <ScrollView showsVerticalScrollIndicator={true}>
-                {/* Header du modal */}
-                <View style={styles.infoModalHeader}>
-                  <Text style={styles.infoModalTitle}>Éditer le médicament</Text>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Éditer le médicament</Text>
                   <TouchableOpacity onPress={handleCancelEdit}>
                     <Text style={styles.closeButton}>✕</Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Nom du médicament */}
                 <View style={styles.formGroup}>
                   <Text style={styles.label}>Nom du médicament</Text>
                   <TextInput
                     style={styles.input}
-                    value={editForm.nom}
+                    value={editForm.name}
                     onChangeText={(text) => {
-                      setEditForm({ ...editForm, nom: text });
+                      setEditForm({ ...editForm, name: text });
                     }}
                     placeholder="Nom du médicament"
                     placeholderTextColor="#9ca3af"
                   />
                 </View>
 
-                {/* Dosage */}
                 <View style={styles.formGroup}>
                   <Text style={styles.label}>Dosage</Text>
-                  <View style={styles.inputWithUnit}>
-                    <TextInput
-                      style={styles.editableInput}
-                      value={editForm.dosageValue}
-                      onChangeText={(text) => {
-                        setEditForm({ ...editForm, dosageValue: text });
-                      }}
-                      placeholder="400"
-                      keyboardType="numeric"
-                      placeholderTextColor="#9ca3af"
-                    />
-                    <Text style={styles.unit}>mg</Text>
-                  </View>
+                  <TextInput
+                    style={styles.input}
+                    value={editForm.dosage}
+                    onChangeText={(text) => {
+                      setEditForm({ ...editForm, dosage: text });
+                    }}
+                    placeholder="ex: 500mg"
+                    placeholderTextColor="#9ca3af"
+                  />
                 </View>
 
-                {/* Quantité */}
                 <View style={styles.formGroup}>
-                  <Text style={styles.label}>Quantité</Text>
-                  <View style={styles.inputWithUnit}>
-                    <TextInput
-                      style={styles.editableInput}
-                      value={editForm.quantityValue}
-                      onChangeText={(text) => {
-                        setEditForm({ ...editForm, quantityValue: text });
-                      }}
-                      placeholder="1"
-                      keyboardType="numeric"
-                      placeholderTextColor="#9ca3af"
-                    />
-                    <Text style={styles.unit}>comprimé(s)</Text>
-                  </View>
+                  <Text style={styles.label}>Fréquence</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={editForm.frequency}
+                    onChangeText={(text) => {
+                      setEditForm({ ...editForm, frequency: text });
+                    }}
+                    placeholder="ex: 2 fois par jour"
+                    placeholderTextColor="#9ca3af"
+                  />
                 </View>
 
-                {/* Durée */}
                 <View style={styles.formGroup}>
                   <Text style={styles.label}>Durée</Text>
-                  <View style={styles.inputWithUnit}>
-                    <TextInput
-                      style={styles.editableInput}
-                      value={editForm.durationValue}
-                      onChangeText={(text) => {
-                        setEditForm({ ...editForm, durationValue: text });
-                      }}
-                      placeholder="3"
-                      keyboardType="numeric"
-                      placeholderTextColor="#9ca3af"
-                    />
-                    <Text style={styles.unit}>jours</Text>
-                  </View>
+                  <TextInput
+                    style={styles.input}
+                    value={editForm.duration}
+                    onChangeText={(text) => {
+                      setEditForm({ ...editForm, duration: text });
+                    }}
+                    placeholder="ex: 7 jours"
+                    placeholderTextColor="#9ca3af"
+                  />
                 </View>
 
-                {/* Description - Lecture seule */}
                 <View style={styles.formGroup}>
-                  <Text style={styles.label}>Description</Text>
-                  <View style={[styles.input, styles.readOnlyInput]}>
-                    <Text style={[styles.readOnlyText, styles.descriptionText]}>{editForm.description}</Text>
-                  </View>
+                  <Text style={styles.label}>Instructions</Text>
+                  <TextInput
+                    style={[styles.input, styles.textAreaInput]}
+                    value={editForm.instructions || ''}
+                    onChangeText={(text) => {
+                      setEditForm({ ...editForm, instructions: text });
+                    }}
+                    placeholder="ex: À prendre pendant les repas"
+                    placeholderTextColor="#9ca3af"
+                    multiline={true}
+                    numberOfLines={4}
+                  />
                 </View>
 
-                {/* Boutons */}
-                <View style={styles.buttonGroup}>
+                <View style={styles.modalButtonsContainer}>
                   <TouchableOpacity
-                    style={[styles.saveButton, styles.cancelButtonStyle]}
+                    style={[styles.modalButton, styles.cancelButton]}
                     onPress={handleCancelEdit}
                   >
                     <Text style={styles.cancelButtonText}>Annuler</Text>
                   </TouchableOpacity>
+
                   <TouchableOpacity
-                    style={styles.saveButton}
-                    onPress={handleSaveEdit}
+                    style={[styles.modalButton, styles.saveButton]}
+                    onPress={handleSaveMedication}
                   >
                     <Text style={styles.saveButtonText}>Sauvegarder</Text>
                   </TouchableOpacity>
-                </View>
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal d'information */}
-      <Modal
-        visible={infoReminder !== null}
-        transparent={true}
-        animationType="fade"
-      >
-        <View style={styles.infoModalOverlay}>
-          <View style={styles.infoModalContent}>
-            {infoReminder && (
-              <ScrollView showsVerticalScrollIndicator={true}>
-                <View style={styles.infoModalHeader}>
-                  <Text style={styles.infoModalTitle}>Détails du médicament</Text>
-                  <TouchableOpacity onPress={() => setInfoReminder(null)}>
-                    <Text style={styles.closeButton}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Card principale avec nom et dosage */}
-                <View style={styles.infoMainCard}>
-                  <Text style={styles.infoMainTitle}>{infoReminder.nom}</Text>
-                  <Text style={styles.infoMainSubtitle}>{infoReminder.dosage}</Text>
-                </View>
-
-                {/* Sections d'infos */}
-                <View style={styles.infoSectionGroup}>
-                  <View style={styles.infoSection}>
-                    <Text style={styles.infoIcon}>💊</Text>
-                    <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>Quantité</Text>
-                      <Text style={styles.infoValue}>{infoReminder.quantity}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.infoSection}>
-                    <Text style={styles.infoIcon}>⏱</Text>
-                    <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>Durée</Text>
-                      <Text style={styles.infoValue}>{infoReminder.duration}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.infoSection}>
-                    <Text style={styles.infoIcon}>✓</Text>
-                    <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>Statut</Text>
-                      <Text style={styles.infoValue}>
-                        {infoReminder.completed ? '✓ Complété' : '⊙ En cours'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Description */}
-                <View style={styles.infoDescriptionSection}>
-                  <Text style={styles.infoDescriptionTitle}>À propos de ce médicament</Text>
-                  <Text style={styles.infoDescription}>{infoReminder.description}</Text>
                 </View>
               </ScrollView>
             )}
@@ -591,43 +458,38 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
 
-  headerBackContainer: {
-    position: 'relative',
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 16,
-    paddingHorizontal: 12,
   },
 
-  backButtonContainer: {
-    position: 'absolute',
-    left: 0,
-    top: 16,
-  },
-
-  backButton: {
+  loadingText: {
+    marginTop: 12,
     fontSize: 16,
-    color: '#0F172A',
-    fontWeight: '600',
+    color: '#64748B',
+    fontWeight: '500',
   },
 
-  headerBack: {
-    flexDirection: 'row',
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 16,
-    paddingHorizontal: 12,
   },
 
-  /* =========================
-     Styles des ordonnances
-  ========================= */
-  prescriptionCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#efefefff',
+  emptyText: {
+    fontSize: 16,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+
+  card: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    marginVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
     marginHorizontal: 'auto',
     width: '90%',
     maxWidth: 500,
@@ -709,75 +571,173 @@ const styles = StyleSheet.create({
     borderLeftColor: '#3B82F6',
   },
 
-  topRow: {
+  prescriptionHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    paddingVertical: 8,
   },
 
-  circle: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#94A3B8',
-    marginRight: 12,
-  },
-
-  content: {
+  prescriptionHeaderLeft: {
     flex: 1,
   },
 
-  title: {
+  prescriptionTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#0F172A',
   },
 
-  subtitle: {
+  prescriptionDate: {
     fontSize: 13,
     color: '#64748B',
     marginTop: 2,
   },
 
-  actions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-
-  actionButton: {
-    padding: 4,
-  },
-
-  infoButton: {
-    padding: 4,
-  },
-
-  bottomRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-  },
-
-  meta: {
+  medicationsCount: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: '#64748B',
+    marginTop: 4,
     fontWeight: '500',
   },
 
-  /* =========================
-     Styles des modals
-  ========================= */
-  modalContainer: {
+  expandIcon: {
+    paddingLeft: 16,
+    justifyContent: 'center',
+  },
+
+  patientInfo: {
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingTop: 12,
+    marginTop: 8,
+  },
+
+  patientLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 4,
+  },
+
+  patientValue: {
+    fontSize: 13,
+    color: '#0F172A',
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+
+  medicationsContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    marginTop: 12,
+    paddingTop: 12,
+  },
+
+  medicationItem: {
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+
+  medicationNameRow: {
+    marginBottom: 8,
+  },
+
+  medicationName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    letterSpacing: 0.3,
+  },
+
+  medicationDetails: {
+    marginLeft: 4,
+  },
+
+  detailRow: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+
+  detailLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    minWidth: 80,
+  },
+
+  detailValue: {
+    fontSize: 12,
+    color: '#0F172A',
+    fontWeight: '500',
     flex: 1,
+  },
+
+  editMedicationButton: {
+    marginTop: 8,
+    paddingVertical: 8,
+    backgroundColor: '#F0F9FF',
+    borderRadius: 6,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E7FF',
+  },
+
+  editMedicationButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+
+  cardActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingTop: 12,
+    marginTop: 8,
+  },
+
+  actionButtonSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
     backgroundColor: '#F8FAFC',
   },
 
-  modalContent: {
+  actionButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+
+  /* Modal Styles */
+  modalOverlay: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '90%',
+    maxWidth: 450,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+    maxHeight: '90%',
   },
 
   infoModalOverlay: {
@@ -813,8 +773,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E2E8F0',
   },
 
-  infoModalTitle: {
-    fontSize: 18,
+  modalTitle: {
+    fontSize: 20,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -822,6 +782,7 @@ const styles = StyleSheet.create({
   closeButton: {
     fontSize: 28,
     color: '#8E8E93',
+    padding: 4,
   },
 
   /* =========================
@@ -844,143 +805,131 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#fff',
-  },
-
-  inputSmall: {
-    flex: 1,
-    borderWidth: 0,
-    paddingHorizontal: 0,
-  },
-
-  editableInput: {
-    flex: 1,
     paddingVertical: 10,
     fontSize: 15,
     color: '#0F172A',
     backgroundColor: '#F8FAFC',
   },
 
-  editableInput: {
-    flex: 1,
-    fontSize: 15,
-    color: '#0F172A',
-    paddingHorizontal: 0,
+  textAreaInput: {
+    textAlignVertical: 'top',
+    minHeight: 80,
   },
 
-  inputWithUnit: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#F8FAFC',
-  },
-
-  unit: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-
-  readOnlyInput: {
-    backgroundColor: '#F1F5F9',
-  },
-
-  readOnlyText: {
-    color: '#64748B',
-  },
-
-  descriptionText: {
-    lineHeight: 20,
-  },
-
-  buttonGroup: {
+  modalButtonsContainer: {
     flexDirection: 'row',
     gap: 12,
     marginTop: 24,
-    marginBottom: 20,
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+  },
+
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+
+  cancelButton: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
   },
 
   saveButton: {
-    flex: 1,
     backgroundColor: '#0F172A',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
   },
 
   saveButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: 0.5,
   },
 
-  /* Info Modal Styles */
-  infoModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-
-  infoModalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
-    width: '90%',
-    maxWidth: 420,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
-    maxHeight: '85%',
-  },
-
-  infoModalHeader: {
+  topRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
   },
 
-  infoModalTitle: {
-    fontSize: 20,
+  circle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#C7C7CC',
+    marginRight: 12,
+  },
+
+  circleCompleted: {
+    backgroundColor: '#000',
+    borderColor: '#000',
+  },
+
+  content: {
+    flex: 1,
+  },
+
+  medName: {
+    fontSize: 16,
     fontWeight: '700',
-    color: '#000',
-  },
-
-  infoSection: {
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-
-  infoLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 6,
+    color: '#0F172A',
     letterSpacing: 0.3,
   },
 
-  infoValue: {
-    fontSize: 15,
+  dosage: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 4,
     fontWeight: '500',
-    color: '#0F172A',
-    lineHeight: 22,
+  },
+
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 12,
+    gap: 8,
+  },
+
+  actionButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
+
+  editText: {
+    fontSize: 16,
+  },
+
+  deleteText: {
+    fontSize: 16,
+  },
+
+  infoButton: {
+    marginLeft: 8,
+  },
+
+  infoText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8E8E93',
+  },
+
+  bottomRow: {
+    flexDirection: 'row',
+    marginTop: 6,
+    marginLeft: 32,
+  },
+
+  meta: {
+    fontSize: 12,
+    color: '#64748B',
+    marginRight: 20,
+    fontWeight: '500',
   },
 
   cancelButtonStyle: {
