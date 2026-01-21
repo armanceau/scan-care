@@ -450,10 +450,10 @@ const styles = StyleSheet.create({
   },
 
   headerTitle: {
-    fontSize: 32,
-    fontWeight: '800',
+    fontSize: 28,
+    fontWeight: '700',
     color: '#0F172A',
-    marginVertical: 24,
+    marginVertical: 16,
     textAlign: 'center',
     letterSpacing: -0.5,
   },
@@ -493,12 +493,82 @@ const styles = StyleSheet.create({
     marginHorizontal: 'auto',
     width: '90%',
     maxWidth: 500,
-    backgroundColor: '#FFFFFF',
     shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+    borderLeftWidth: 4,
+    borderLeftColor: '#3B82F6',
+  },
+
+  prescriptionContent: {
+    flex: 1,
+  },
+
+  prescriptionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000000ff',
+    marginBottom: 4,
+  },
+
+  prescriptionDate: {
+    fontSize: 13,
+    color: '#000000ff',
+    marginBottom: 6,
+  },
+
+  medicamentCount: {
+    fontSize: 12,
+    color: '#000000ff',
+    fontWeight: '600',
+    
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+
+  editPrescriptionButton: {
+    padding: 4,
+    marginHorizontal: 4,
+  },
+
+  prescriptionClickArea: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  arrowIcon: {
+    fontSize: 28,
+    color: '#94A3B8',
+  },
+
+  arrowIconExpanded: {
+    color: '#3B82F6',
+    fontWeight: '700',
+  },
+
+  /* =========================
+     Styles des cartes (médicaments)
+  ========================= */
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    marginHorizontal: 0,
+    marginVertical: 8,
+    width: '100%',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
     elevation: 2,
+    borderLeftWidth: 3,
+    borderLeftColor: '#3B82F6',
   },
 
   prescriptionHeader: {
@@ -516,14 +586,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#0F172A',
-    letterSpacing: 0.3,
   },
 
   prescriptionDate: {
     fontSize: 13,
     color: '#64748B',
-    marginTop: 4,
-    fontWeight: '500',
+    marginTop: 2,
   },
 
   medicationsCount: {
@@ -672,11 +740,37 @@ const styles = StyleSheet.create({
     maxHeight: '90%',
   },
 
-  modalHeader: {
+  infoModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+
+  infoModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 420,
+    maxHeight: '80%',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+
+  infoModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
 
   modalTitle: {
@@ -691,6 +785,9 @@ const styles = StyleSheet.create({
     padding: 4,
   },
 
+  /* =========================
+     Styles des formulaires
+  ========================= */
   formGroup: {
     marginBottom: 16,
   },
@@ -833,5 +930,130 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginRight: 20,
     fontWeight: '500',
+  },
+
+  cancelButtonStyle: {
+    backgroundColor: '#E2E8F0',
+  },
+
+  cancelButtonText: {
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  /* =========================
+     Styles des infos
+  ========================= */
+  infoMainCard: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderLeftWidth: 4,
+    borderLeftColor: '#0F172A',
+  },
+
+  infoMainTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 8,
+  },
+
+  infoMainSubtitle: {
+    fontSize: 16,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+
+  infoSectionGroup: {
+    marginBottom: 24,
+    gap: 12,
+  },
+
+  infoSection: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 0,
+  },
+
+  infoIcon: {
+    fontSize: 20,
+    marginRight: 12,
+    marginTop: 2,
+  },
+
+  infoContent: {
+    flex: 1,
+  },
+
+  infoLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  infoValue: {
+    fontSize: 15,
+    color: '#0F172A',
+    lineHeight: 22,
+    fontWeight: '500',
+  },
+
+  infoDescriptionSection: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 20,
+  },
+
+  infoDescriptionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  infoDescription: {
+    fontSize: 14,
+    color: '#475569',
+    lineHeight: 22,
+    fontWeight: '400',
+  },
+
+  modalHeader: {
+    marginBottom: 16,
+  },
+
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+
+  /* =========================
+     Styles du menu déroulant
+  ========================= */
+  medicamentsDropdown: {
+    backgroundColor: '#F0F4F8',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginVertical: 0,
+    marginHorizontal: 'auto',
+    width: '90%',
+    maxWidth: 500,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#E2E8F0',
   },
 });
