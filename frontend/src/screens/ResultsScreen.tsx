@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#4F46E5',
+    borderLeftColor: '#2563eb',
   },
   medName: {
     fontSize: 18,
