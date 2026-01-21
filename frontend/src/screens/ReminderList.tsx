@@ -588,6 +588,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     marginVertical: 16,
     textAlign: 'center',
+    letterSpacing: -0.5,
   },
 
   headerBackContainer: {
@@ -835,6 +836,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#0F172A',
     marginBottom: 8,
+    letterSpacing: 0.3,
   },
 
   input: {
@@ -842,6 +844,17 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 8,
     paddingHorizontal: 12,
+    backgroundColor: '#fff',
+  },
+
+  inputSmall: {
+    flex: 1,
+    borderWidth: 0,
+    paddingHorizontal: 0,
+  },
+
+  editableInput: {
+    flex: 1,
     paddingVertical: 10,
     fontSize: 15,
     color: '#0F172A',
@@ -890,6 +903,11 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 24,
     marginBottom: 20,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
 
   saveButton: {
@@ -903,7 +921,66 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+
+  /* Info Modal Styles */
+  infoModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+
+  infoModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '90%',
+    maxWidth: 420,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+    maxHeight: '85%',
+  },
+
+  infoModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+
+  infoModalTitle: {
+    fontSize: 20,
     fontWeight: '700',
+    color: '#000',
+  },
+
+  infoSection: {
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
+  },
+
+  infoLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 6,
+    letterSpacing: 0.3,
+  },
+
+  infoValue: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#0F172A',
+    lineHeight: 22,
   },
 
   cancelButtonStyle: {

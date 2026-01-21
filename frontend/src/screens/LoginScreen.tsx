@@ -1,6 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import type { User } from "firebase/auth";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -125,6 +125,9 @@ export const LoginScreen = ({
       <View style={styles.wrapper}>
         <View style={styles.card}>
           <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <Text style={styles.logoIcon}>💊</Text>
+            </View>
             <Text style={styles.logo}>Scan Care</Text>
             <Text style={styles.tagline}>
               {user ? "Sécurisé et authentifié" : "Votre assistant de santé"}
@@ -460,5 +463,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#64748b",
     fontWeight: "500",
+  },
+  logoContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#1F2937',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  logoIcon: {
+    fontSize: 24,
   },
 });

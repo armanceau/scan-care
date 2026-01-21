@@ -42,6 +42,11 @@ export default function ScanPrescriptionScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
+      console.log('📸 Photo prise:');
+      console.log('  - URI:', result.assets[0].uri);
+      console.log('  - Width:', result.assets[0].width);
+      console.log('  - Height:', result.assets[0].height);
+      console.log('  - Type:', result.assets[0].type);
       setSelectedImage(result.assets[0].uri);
     }
   };
@@ -61,6 +66,11 @@ export default function ScanPrescriptionScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
+      console.log('🖼️ Image sélectionnée depuis la galerie:');
+      console.log('  - URI:', result.assets[0].uri);
+      console.log('  - Width:', result.assets[0].width);
+      console.log('  - Height:', result.assets[0].height);
+      console.log('  - Type:', result.assets[0].type);
       setSelectedImage(result.assets[0].uri);
     }
   };
@@ -71,6 +81,9 @@ export default function ScanPrescriptionScreen() {
 
     setIsProcessing(true);
     try {
+      console.log('🔍 Début de l\'extraction...');
+      console.log('📍 URI à analyser:', selectedImage);
+      
       // Appel à l'API Mistral
       const result = await analyzePrescriptionImage(selectedImage);
       
@@ -86,6 +99,7 @@ export default function ScanPrescriptionScreen() {
         console.log('✅ Affichage des résultats:', result.medications.length, 'médicaments');
       }
     } catch (error) {
+      console.error('❌ Erreur lors de l\'extraction:', error);
       Alert.alert(
         'Erreur',
         error instanceof Error ? error.message : 'Impossible d\'analyser l\'ordonnance.',
@@ -113,13 +127,6 @@ export default function ScanPrescriptionScreen() {
   if (!selectedImage) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.logoIcon}>💊</Text>
-          </View>
-          <Text style={styles.appName}>MediScan</Text>
-        </View>
-
         <View style={styles.content}>
           {/* Icône document */}
           <View style={styles.iconContainer}>
@@ -162,13 +169,6 @@ export default function ScanPrescriptionScreen() {
   // Si une image est sélectionnée - Écran de prévisualisation
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoIcon}>💊</Text>
-        </View>
-        <Text style={styles.appName}>MediScan</Text>
-      </View>
-
       <View style={styles.previewContent}>
         {/* Image de l'ordonnance */}
         <View style={styles.imageContainer}>
@@ -211,31 +211,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  logoContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#1F2937',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  logoIcon: {
-    fontSize: 24,
-  },
-  appName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
   },
   content: {
     flex: 1,

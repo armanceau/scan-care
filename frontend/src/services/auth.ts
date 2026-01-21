@@ -1,3 +1,5 @@
+// @ts-ignore
+// @ts-ignore
 import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
