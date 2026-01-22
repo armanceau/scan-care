@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -9,11 +9,15 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-} from 'react-native';
-import { getAuth } from 'firebase/auth';
-import type { Medication } from '../services/mistral';
-import { savePrescriptionToFirestore } from '../services/firebase';
-import MedicationEditor from '../components/MedicationEditor';
+} from "react-native";
+import { getAuth } from "firebase/auth";
+import type { Medication } from "../services/mistral";
+import { savePrescriptionToFirestore } from "../services/firebase";
+import MedicationEditor from "../components/MedicationEditor";
+import {
+  registerForPushNotifications,
+  schedulePrescriptionNotifications,
+} from "../services/notifications";
 
 interface ResultsScreenProps {
   medications: Medication[];
@@ -30,7 +34,8 @@ export default function ResultsScreen({
   patient,
   rawResponse,
 }: ResultsScreenProps) {
-  const [medications, setMedications] = useState<Medication[]>(initialMedications);
+  const [medications, setMedications] =
+    useState<Medication[]>(initialMedications);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const auth = getAuth();
@@ -50,19 +55,19 @@ export default function ResultsScreen({
 
   const handleDeleteMedication = (index: number) => {
     Alert.alert(
-      'Supprimer le médicament',
+      "Supprimer le médicament",
       `Êtes-vous sûr de vouloir supprimer ${medications[index].name}?`,
       [
-        { text: 'Annuler', onPress: () => {}, style: 'cancel' },
+        { text: "Annuler", onPress: () => {}, style: "cancel" },
         {
-          text: 'Supprimer',
+          text: "Supprimer",
           onPress: () => {
             const newMedications = medications.filter((_, i) => i !== index);
             setMedications(newMedications);
           },
-          style: 'destructive',
+          style: "destructive",
         },
-      ]
+      ],
     );
   };
 
@@ -70,12 +75,12 @@ export default function ResultsScreen({
     try {
       const user = auth.currentUser;
       if (!user) {
-        Alert.alert('Erreur', 'Vous devez être connecté pour enregistrer');
+        Alert.alert("Erreur", "Vous devez être connecté pour enregistrer");
         return;
       }
 
       if (medications.length === 0) {
-        Alert.alert('Erreur', 'Aucun médicament à enregistrer');
+        Alert.alert("Erreur", "Aucun médicament à enregistrer");
         return;
       }
 
@@ -88,15 +93,27 @@ export default function ResultsScreen({
         patient: patient || undefined,
       };
 
-      const prescriptionId = await savePrescriptionToFirestore(user.uid, prescription);
-
-      Alert.alert(
-        'Succès',
-        `Ordonnance enregistrée avec succès (ID: ${prescriptionId.substring(0, 8)}...)`
+      const prescriptionId = await savePrescriptionToFirestore(
+        user.uid,
+        prescription,
       );
+
+      const hasPermission = await registerForPushNotifications();
+      if (hasPermission) {
+        await schedulePrescriptionNotifications(prescriptionId, medications);
+        Alert.alert(
+          "Succès",
+          `Ordonnance enregistrée avec succès !\n\n✅ ${medications.length} médicament(s) configuré(s) avec des rappels.`,
+        );
+      } else {
+        Alert.alert(
+          "Ordonnance enregistrée",
+          `Ordonnance enregistrée mais les notifications ne sont pas activées.\n\nActivez-les dans les paramètres pour recevoir des rappels.`,
+        );
+      }
     } catch (error) {
-      console.error('Erreur:', error);
-      Alert.alert('Erreur', 'Impossible d\'enregistrer l\'ordonnance');
+      console.error("Erreur:", error);
+      Alert.alert("Erreur", "Impossible d'enregistrer l'ordonnance");
     } finally {
       setIsSaving(false);
     }
@@ -156,7 +173,9 @@ export default function ResultsScreen({
               <Text style={styles.medDetail}>Fréquence: {med.frequency}</Text>
               <Text style={styles.medDetail}>Durée: {med.duration}</Text>
               {med.instructions && (
-                <Text style={styles.medInstructions}>ℹ️ {med.instructions}</Text>
+                <Text style={styles.medInstructions}>
+                  ℹ️ {med.instructions}
+                </Text>
               )}
 
               {/* Boutons d'action */}
@@ -178,14 +197,6 @@ export default function ResultsScreen({
             </View>
           ))
         )}
-
-        {/* Réponse brute pour debug */}
-        {rawResponse && (
-          <View style={styles.debugCard}>
-            <Text style={styles.debugTitle}>🔍 Réponse brute (debug):</Text>
-            <Text style={styles.debugText}>{rawResponse}</Text>
-          </View>
-        )}
       </ScrollView>
 
       {/* Boutons d'action en bas */}
@@ -198,7 +209,7 @@ export default function ResultsScreen({
           {isSaving ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.saveButtonText}>💾 Enregistrer en Firestore</Text>
+            <Text style={styles.saveButtonText}>💾 Enregistrer le rappel</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -206,11 +217,10 @@ export default function ResultsScreen({
   );
 }
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: "#F9FAFB",
   },
   content: {
     flex: 1,
@@ -219,96 +229,96 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontWeight: "bold",
+    color: "#111827",
     marginBottom: 20,
   },
   infoCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
   },
   label: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
     marginBottom: 4,
   },
   value: {
     fontSize: 16,
-    color: '#111827',
-    fontWeight: '600',
+    color: "#111827",
+    fontWeight: "600",
   },
   sectionTitle: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontWeight: "bold",
+    color: "#111827",
     marginTop: 20,
     marginBottom: 12,
   },
   emptyCard: {
-    backgroundColor: '#F3E8FF',
+    backgroundColor: "#F3E8FF",
     padding: 20,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   emptyText: {
     fontSize: 16,
-    color: '#7C3AED',
-    fontWeight: '500',
+    color: "#7C3AED",
+    fontWeight: "500",
   },
   medCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#2563eb',
+    borderLeftColor: "#2563eb",
   },
   medName: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontWeight: "bold",
+    color: "#111827",
     marginBottom: 8,
   },
   medDetail: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
     marginBottom: 4,
   },
   medInstructions: {
     fontSize: 14,
-    color: '#4F46E5',
+    color: "#4F46E5",
     marginTop: 8,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   actionButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: "#E5E7EB",
   },
   actionButton: {
     flex: 1,
     paddingVertical: 10,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   editButton: {
-    backgroundColor: '#DBEAFE',
+    backgroundColor: "#DBEAFE",
   },
   deleteButton: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: "#FEE2E2",
   },
   actionButtonText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
   },
   debugCard: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: "#FEF3C7",
     padding: 16,
     borderRadius: 12,
     marginTop: 20,
@@ -316,39 +326,38 @@ const styles = StyleSheet.create({
   },
   debugTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#92400E',
+    fontWeight: "bold",
+    color: "#92400E",
     marginBottom: 8,
   },
   debugText: {
     fontSize: 12,
-    color: '#78350F',
-    fontFamily: 'monospace',
+    color: "#78350F",
+    fontFamily: "monospace",
   },
   bottomActions: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: "#E5E7EB",
   },
   saveButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: "#10B981",
     paddingVertical: 14,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   saveButtonDisabled: {
     opacity: 0.6,
   },
   saveButtonText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    fontWeight: "bold",
+    color: "#FFFFFF",
   },
 });
-

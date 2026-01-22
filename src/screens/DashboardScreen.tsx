@@ -1,4 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  registerForPushNotifications,
+  sendTestNotification,
+} from "../services/notifications";
 
 type DashboardScreenProps = {
   onOpenReminders?: () => void;
@@ -11,6 +15,28 @@ export const DashboardScreen = ({
   onOpenScanPrescription,
   userEmail,
 }: DashboardScreenProps) => {
+  const handleTestNotification = async () => {
+    try {
+      const hasPermission = await registerForPushNotifications();
+      if (!hasPermission) {
+        Alert.alert(
+          "Permission refusée",
+          "Activez les notifications dans les paramètres pour tester.",
+        );
+        return;
+      }
+
+      await sendTestNotification();
+      Alert.alert(
+        "🧪 Test lancé",
+        "Tu vas recevoir une notification dans 2 secondes !",
+      );
+    } catch (error) {
+      console.error("Erreur test notification:", error);
+      Alert.alert("Erreur", "Impossible d'envoyer la notification de test");
+    }
+  };
+
   return (
     <View style={styles.screen}>
       <View style={styles.hero}>
@@ -19,6 +45,21 @@ export const DashboardScreen = ({
             ? `Connecté en tant que ${userEmail}`
             : "Gérez vos rappels et notifications."}
         </Text>
+      </View>
+
+      <View style={styles.cards}>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>🧪 Test de notifications</Text>
+          <Text style={styles.cardText}>
+            Notifications push dans 2 secondes.
+          </Text>
+          <Pressable
+            style={[styles.button, styles.testButton]}
+            onPress={handleTestNotification}
+          >
+            <Text style={styles.buttonText}>Envoyer une notif test</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.cards}>
@@ -103,6 +144,9 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     backgroundColor: "#2563eb",
+  },
+  testButton: {
+    backgroundColor: "#10B981",
   },
   buttonText: {
     color: "#fff",

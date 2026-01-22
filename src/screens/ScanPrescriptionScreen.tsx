@@ -19,7 +19,6 @@ export default function ScanPrescriptionScreen() {
   const [analysisResult, setAnalysisResult] = useState<PrescriptionAnalysis | null>(null);
   const [rawResponse, setRawResponse] = useState<string>('');
 
-  // Demander les permissions
   const requestPermissions = async () => {
     const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
     const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -27,7 +26,6 @@ export default function ScanPrescriptionScreen() {
     return cameraStatus === 'granted' && libraryStatus === 'granted';
   };
 
-  // Prendre une photo
   const handleTakePhoto = async () => {
     const hasPermissions = await requestPermissions();
     if (!hasPermissions) {
@@ -51,7 +49,6 @@ export default function ScanPrescriptionScreen() {
     }
   };
 
-  // Choisir depuis la galerie
   const handlePickImage = async () => {
     const hasPermissions = await requestPermissions();
     if (!hasPermissions) {
@@ -75,7 +72,6 @@ export default function ScanPrescriptionScreen() {
     }
   };
 
-  // Extraire les médicaments (appel API Mistral)
   const handleExtractMedications = async () => {
     if (!selectedImage) return;
 
@@ -84,7 +80,6 @@ export default function ScanPrescriptionScreen() {
       console.log('🔍 Début de l\'extraction...');
       console.log('📍 URI à analyser:', selectedImage);
       
-      // Appel à l'API Mistral
       const result = await analyzePrescriptionImage(selectedImage);
       
       setAnalysisResult(result);
@@ -110,7 +105,6 @@ export default function ScanPrescriptionScreen() {
     }
   };
 
-  // Si on a des résultats, afficher la page de résultats
   if (analysisResult) {
     return (
       <ResultsScreen 
@@ -123,27 +117,22 @@ export default function ScanPrescriptionScreen() {
     );
   }
 
-  // Si aucune image n'est sélectionnée - Écran initial
   if (!selectedImage) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.content}>
-          {/* Icône document */}
           <View style={styles.iconContainer}>
             <View style={styles.iconCircle}>
               <Text style={styles.documentIcon}>📋</Text>
             </View>
           </View>
 
-          {/* Titre principal */}
           <Text style={styles.mainTitle}>Scannez votre{'\n'}ordonnance</Text>
 
-          {/* Description */}
           <Text style={styles.description}>
             Prenez une photo de votre ordonnance pour extraire automatiquement vos médicaments et créer des rappels
           </Text>
 
-          {/* Boutons */}
           <View style={styles.buttonContainer}>
             <TouchableOpacity 
               style={styles.primaryButton}
@@ -166,11 +155,9 @@ export default function ScanPrescriptionScreen() {
     );
   }
 
-  // Si une image est sélectionnée - Écran de prévisualisation
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.previewContent}>
-        {/* Image de l'ordonnance */}
         <View style={styles.imageContainer}>
           <Image 
             source={{ uri: selectedImage }} 
@@ -179,7 +166,6 @@ export default function ScanPrescriptionScreen() {
           />
         </View>
 
-        {/* Bouton d'extraction */}
         <TouchableOpacity 
           style={[styles.extractButton, isProcessing && styles.extractButtonDisabled]}
           onPress={handleExtractMedications}
@@ -195,7 +181,6 @@ export default function ScanPrescriptionScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Bouton pour changer d'image */}
         <TouchableOpacity 
           style={styles.changeImageButton}
           onPress={() => setSelectedImage(null)}
