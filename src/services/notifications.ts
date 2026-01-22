@@ -2,7 +2,6 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import type { Medication } from "./mistral";
 
-// Configuration par défaut des notifications
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -13,12 +12,11 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Horaires par défaut pour les prises
 const DEFAULT_TIMES = {
   matin: { hour: 8, minute: 0 },
   midi: { hour: 12, minute: 0 },
   "après-midi": { hour: 15, minute: 0 },
-  "aprés-midi": { hour: 15, minute: 0 }, // variation orthographique
+  "aprés-midi": { hour: 15, minute: 0 }, // variation orthographique --> mistral peut parfois se tromper d'accent (vu sur un test)
   soir: { hour: 19, minute: 0 },
   nuit: { hour: 22, minute: 0 },
   coucher: { hour: 22, minute: 0 },
@@ -60,23 +58,16 @@ export async function registerForPushNotifications(): Promise<boolean> {
   }
 }
 
-/**
- * Parse la fréquence d'un médicament
- * Ex: "1 matin, 1 après-midi" => [{ count: 1, moment: 'matin' }, { count: 1, moment: 'après-midi' }]
- */
 function parseFrequency(
   frequency: string,
 ): Array<{ count: number; moment: string }> {
   const parsed: Array<{ count: number; moment: string }> = [];
 
-  // Normaliser la chaîne
   const normalized = frequency.toLowerCase().trim();
 
-  // Diviser par virgule ou "et"
   const parts = normalized.split(/,|et/).map((p) => p.trim());
 
   for (const part of parts) {
-    // Chercher un pattern comme "1 matin", "2 fois par jour", etc.
     const match = part.match(
       /(\d+)\s*(fois)?\s*(le)?\s*(matin|midi|après-midi|aprés-midi|soir|nuit|coucher)/i,
     );
@@ -88,9 +79,7 @@ function parseFrequency(
     }
   }
 
-  // Si rien n'a été parsé, essayer de détecter des patterns simples
   if (parsed.length === 0) {
-    // "3 fois par jour" => matin, midi, soir
     const timesPerDayMatch = normalized.match(/(\d+)\s*fois\s*par\s*jour/);
     if (timesPerDayMatch) {
       const count = parseInt(timesPerDayMatch[1], 10);
@@ -104,23 +93,15 @@ function parseFrequency(
   return parsed;
 }
 
-/**
- * Calcule la durée en jours à partir d'une chaîne
- * Ex: "pour 28 jours" => 28
- */
 function parseDuration(duration: string): number {
   const match = duration.match(/(\d+)\s*jours?/i);
   if (match) {
     return parseInt(match[1], 10);
   }
 
-  // Par défaut, 30 jours
   return 30;
 }
 
-/**
- * Planifie les notifications pour un médicament
- */
 export async function scheduleMedicationNotifications(
   medication: Medication,
   prescriptionId: string,
@@ -128,7 +109,6 @@ export async function scheduleMedicationNotifications(
   try {
     const notificationIds: string[] = [];
 
-    // Parser la fréquence
     const frequencies = parseFrequency(medication.frequency || "");
 
     if (frequencies.length === 0) {
@@ -138,7 +118,6 @@ export async function scheduleMedicationNotifications(
       return [];
     }
 
-    // Parser la durée
     const durationDays = parseDuration(medication.duration || "");
 
     console.log(
@@ -146,7 +125,6 @@ export async function scheduleMedicationNotifications(
       frequencies,
     );
 
-    // Pour chaque moment de la journée
     for (const freq of frequencies) {
       const timeConfig =
         DEFAULT_TIMES[freq.moment.toLowerCase() as keyof typeof DEFAULT_TIMES];
@@ -156,7 +134,6 @@ export async function scheduleMedicationNotifications(
         continue;
       }
 
-      // Créer une notification répétée quotidiennement
       const trigger: Notifications.DailyTriggerInput = {
         type: Notifications.SchedulableTriggerInputTypes.DAILY,
         hour: timeConfig.hour,
@@ -194,9 +171,6 @@ export async function scheduleMedicationNotifications(
   }
 }
 
-/**
- * Planifie toutes les notifications pour une prescription
- */
 export async function schedulePrescriptionNotifications(
   prescriptionId: string,
   medications: Medication[],
@@ -219,9 +193,6 @@ export async function schedulePrescriptionNotifications(
   return notificationMap;
 }
 
-/**
- * Annule toutes les notifications planifiées
- */
 export async function cancelAllNotifications(): Promise<void> {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
@@ -231,9 +202,6 @@ export async function cancelAllNotifications(): Promise<void> {
   }
 }
 
-/**
- * Annule des notifications spécifiques
- */
 export async function cancelNotifications(
   notificationIds: string[],
 ): Promise<void> {
@@ -267,9 +235,6 @@ export async function listScheduledNotifications(): Promise<
   }
 }
 
-/**
- * Envoie une notification de test immédiate (pour debug)
- */
 export async function sendTestNotification(): Promise<string> {
   try {
     const notificationId = await Notifications.scheduleNotificationAsync({

@@ -12,7 +12,6 @@ import {
   TextInput,
 } from "react-native";
 
-//import type firebase
 import type { Medication } from "../services/mistral";
 import {
   getUserPrescriptions,
@@ -28,7 +27,6 @@ import {
 
 import Svg, { Path } from "react-native-svg";
 
-//Interface Reminder avec les propriétés des médicaments de Firestore
 interface Reminder {
   id: string;
   prescriptionId: string;
@@ -83,7 +81,6 @@ const ReminderList: React.FC = () => {
           return;
         }
 
-        // Récupérer les prescriptions de l'utilisateur
         const loadedPrescriptions = await getUserPrescriptions(currentUser.uid);
         setPrescriptions(loadedPrescriptions);
         console.log("✅ Prescriptions chargées:", loadedPrescriptions.length);
@@ -134,7 +131,6 @@ const ReminderList: React.FC = () => {
     }
   };
 
-  //save medicament data
   const handleSaveMedication = async () => {
     if (!editingPrescriptionId || editingMedicationIndex === null || !editForm)
       return;
@@ -196,7 +192,6 @@ const ReminderList: React.FC = () => {
     );
   };
 
-  //modale delete
   const deletePrescriptionAsync = async (prescriptionId: string) => {
     try {
       await deletePrescriptionFromFirestore(prescriptionId);
@@ -208,12 +203,10 @@ const ReminderList: React.FC = () => {
     }
   };
 
-  //delete state
   const removePrescriptionFromState = (prescriptionId: string) => {
     setPrescriptions((prev) => prev.filter((p) => p.id !== prescriptionId));
   };
 
-  // Activer les notifications pour une prescription
   const handleActivateNotifications = async (
     prescription: ListPrescription,
   ) => {

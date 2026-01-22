@@ -25,21 +25,17 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  // Configurer les listeners de notifications
   useEffect(() => {
-    // Listener pour les notifications reçues quand l'app est ouverte
     notificationListener.current =
       Notifications.addNotificationReceivedListener((notification) => {
         console.log("🔔 Notification reçue:", notification);
       });
 
-    // Listener pour quand l'utilisateur tape sur une notification
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener((response) => {
         console.log("👆 Notification tapée:", response);
         const data = response.notification.request.content.data;
         console.log("Données:", data);
-        // Ici tu peux naviguer vers un écran spécifique si besoin
       });
 
     return () => {
