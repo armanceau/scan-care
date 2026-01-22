@@ -82,10 +82,10 @@ npm start
 - 📸 Scanner des ordonnances
 - 🤖 Extraction automatique des informations
 - 📋 Gestion des rappels de médicaments
+- Historique des prescriptions
 
 ### 🔄 En développement
 
 - Mode sombre
 - Support multilingue
 - Notifications de rappel
-- Historique des prescriptions
