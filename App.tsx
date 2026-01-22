@@ -1,7 +1,8 @@
 import { NavigationContainer } from "@react-navigation/native";
 import type { User } from "firebase/auth";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import * as Notifications from "expo-notifications";
 
 import { RootNavigator } from "./src/navigation/RootNavigator";
 import { watchAuthState } from "./src/services/auth";
@@ -11,6 +12,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const notificationListener = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {
     const unsubscribe = watchAuthState((authUser) => {
@@ -20,6 +23,33 @@ export default function App() {
     });
 
     return unsubscribe;
+  }, []);
+
+  // Configurer les listeners de notifications
+  useEffect(() => {
+    // Listener pour les notifications reçues quand l'app est ouverte
+    notificationListener.current =
+      Notifications.addNotificationReceivedListener((notification) => {
+        console.log("🔔 Notification reçue:", notification);
+      });
+
+    // Listener pour quand l'utilisateur tape sur une notification
+    responseListener.current =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        console.log("👆 Notification tapée:", response);
+        const data = response.notification.request.content.data;
+        console.log("Données:", data);
+        // Ici tu peux naviguer vers un écran spécifique si besoin
+      });
+
+    return () => {
+      if (notificationListener.current) {
+        notificationListener.current.remove();
+      }
+      if (responseListener.current) {
+        responseListener.current.remove();
+      }
+    };
   }, []);
 
   const handleAuthStateChange = (user: User | null) => {

@@ -80,7 +80,31 @@ export const RootNavigator = ({
           <Stack.Screen
             name="RemindersList"
             component={ReminderList}
-            options={{ title: "Mes rappels" }}
+            options={({ navigation }) => ({
+              title: "",
+              headerTitle: "",
+              headerTitleAlign: "center",
+              headerRight: () => (
+                <Pressable
+                  style={styles.headerAction}
+                  onPress={onSignOut}
+                  disabled={submitting}
+                >
+                  <FontAwesome name="sign-out" size={20} color="#fff" />
+                </Pressable>
+              ),
+              headerLeft: () => (
+                <Pressable
+                  style={styles.header}
+                  onPress={() => navigation.navigate("Dashboard")}
+                >
+                  <View style={styles.logoContainer}>
+                    <Text style={styles.logoIcon}>💊</Text>
+                  </View>
+                  <Text style={styles.appName}>Scan Care</Text>
+                </Pressable>
+              ),
+            })}
           />
           <Stack.Screen
             name="ScanPrescriptionScreen"

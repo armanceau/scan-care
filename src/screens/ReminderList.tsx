@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -10,14 +10,23 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
-} from 'react-native';
+} from "react-native";
 
 //import type firebase
-import type { Medication } from '../services/mistral';
-import { getUserPrescriptions, auth, updatePrescriptionInFirestore, deletePrescriptionFromFirestore } from '../services/firebase';
+import type { Medication } from "../services/mistral";
+import {
+  getUserPrescriptions,
+  auth,
+  updatePrescriptionInFirestore,
+  deletePrescriptionFromFirestore,
+} from "../services/firebase";
+import {
+  registerForPushNotifications,
+  schedulePrescriptionNotifications,
+  listScheduledNotifications,
+} from "../services/notifications";
 
-import Svg, { Path } from 'react-native-svg';
-
+import Svg, { Path } from "react-native-svg";
 
 //Interface Reminder avec les propriétés des médicaments de Firestore
 interface Reminder {
@@ -48,24 +57,28 @@ interface ListPrescription {
   expandedMedicationId?: string | null;
 }
 
-//component
 const ReminderList: React.FC = () => {
   const [prescriptions, setPrescriptions] = useState<ListPrescription[]>([]);
-  const [expandedPrescriptions, setExpandedPrescriptions] = useState<Set<string>>(new Set());
+  const [expandedPrescriptions, setExpandedPrescriptions] = useState<
+    Set<string>
+  >(new Set());
   const [loading, setLoading] = useState<boolean>(true);
-  const [editingPrescriptionId, setEditingPrescriptionId] = useState<string | null>(null);
-  const [editingMedicationIndex, setEditingMedicationIndex] = useState<number | null>(null);
+  const [editingPrescriptionId, setEditingPrescriptionId] = useState<
+    string | null
+  >(null);
+  const [editingMedicationIndex, setEditingMedicationIndex] = useState<
+    number | null
+  >(null);
   const [editForm, setEditForm] = useState<Medication | null>(null);
 
-  //charger prescription 
   useEffect(() => {
     const loadPrescriptions = async () => {
       try {
         setLoading(true);
         const currentUser = auth.currentUser;
-        
+
         if (!currentUser) {
-          console.warn('Aucun utilisateur connecté');
+          console.warn("Aucun utilisateur connecté");
           setPrescriptions([]);
           return;
         }
@@ -73,10 +86,10 @@ const ReminderList: React.FC = () => {
         // Récupérer les prescriptions de l'utilisateur
         const loadedPrescriptions = await getUserPrescriptions(currentUser.uid);
         setPrescriptions(loadedPrescriptions);
-        console.log('✅ Prescriptions chargées:', loadedPrescriptions.length);
+        console.log("✅ Prescriptions chargées:", loadedPrescriptions.length);
       } catch (error) {
-        console.error('❌ Erreur lors du chargement des prescriptions:', error);
-        Alert.alert('Erreur', 'Impossible de charger les prescriptions');
+        console.error("❌ Erreur lors du chargement des prescriptions:", error);
+        Alert.alert("Erreur", "Impossible de charger les prescriptions");
       } finally {
         setLoading(false);
       }
@@ -85,19 +98,17 @@ const ReminderList: React.FC = () => {
     loadPrescriptions();
   }, []);
 
-
   const formatDate = (date: any): string => {
-    if (!date) return 'Date inconnue';
+    if (!date) return "Date inconnue";
     try {
       if (date.toDate) {
-        return date.toDate().toLocaleDateString('fr-FR');
+        return date.toDate().toLocaleDateString("fr-FR");
       }
-      return new Date(date).toLocaleDateString('fr-FR');
+      return new Date(date).toLocaleDateString("fr-FR");
     } catch {
-      return 'Date invalide';
+      return "Date invalide";
     }
   };
-
 
   const togglePrescriptionExpanded = (prescriptionId: string) => {
     setExpandedPrescriptions((prev) => {
@@ -111,8 +122,10 @@ const ReminderList: React.FC = () => {
     });
   };
 
-
-  const handleEditMedication = (prescriptionId: string, medicationIndex: number) => {
+  const handleEditMedication = (
+    prescriptionId: string,
+    medicationIndex: number,
+  ) => {
     const prescription = prescriptions.find((p) => p.id === prescriptionId);
     if (prescription?.medications?.[medicationIndex]) {
       setEditingPrescriptionId(prescriptionId);
@@ -123,10 +136,13 @@ const ReminderList: React.FC = () => {
 
   //save medicament data
   const handleSaveMedication = async () => {
-    if (!editingPrescriptionId || editingMedicationIndex === null || !editForm) return;
+    if (!editingPrescriptionId || editingMedicationIndex === null || !editForm)
+      return;
 
     try {
-      const prescription = prescriptions.find((p) => p.id === editingPrescriptionId);
+      const prescription = prescriptions.find(
+        (p) => p.id === editingPrescriptionId,
+      );
       if (!prescription) return;
 
       const updatedMedications = [...prescription.medications];
@@ -142,19 +158,18 @@ const ReminderList: React.FC = () => {
             return { ...p, medications: updatedMedications };
           }
           return p;
-        })
+        }),
       );
 
       setEditingPrescriptionId(null);
       setEditingMedicationIndex(null);
       setEditForm(null);
-      Alert.alert('Succès', 'Médicament mis à jour');
+      Alert.alert("Succès", "Médicament mis à jour");
     } catch (error) {
-      console.error('❌ Erreur lors de la mise à jour:', error);
-      Alert.alert('Erreur', 'Impossible de mettre à jour le médicament');
+      console.error("❌ Erreur lors de la mise à jour:", error);
+      Alert.alert("Erreur", "Impossible de mettre à jour le médicament");
     }
   };
-
 
   const handleCancelEdit = () => {
     setEditingPrescriptionId(null);
@@ -168,28 +183,28 @@ const ReminderList: React.FC = () => {
     };
 
     Alert.alert(
-      'Supprimer la prescription',
-      'Êtes-vous sûr de vouloir supprimer cette ordonnance et tous ses médicaments?',
+      "Supprimer la prescription",
+      "Êtes-vous sûr de vouloir supprimer cette ordonnance et tous ses médicaments?",
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: "Annuler", style: "cancel" },
         {
-          text: 'Supprimer',
-          style: 'destructive',
+          text: "Supprimer",
+          style: "destructive",
           onPress: confirmDelete,
         },
-      ]
+      ],
     );
   };
 
-  //modale delete 
+  //modale delete
   const deletePrescriptionAsync = async (prescriptionId: string) => {
     try {
       await deletePrescriptionFromFirestore(prescriptionId);
       removePrescriptionFromState(prescriptionId);
-      Alert.alert('Succès', 'Prescription supprimée');
+      Alert.alert("Succès", "Prescription supprimée");
     } catch (error) {
-      console.error('❌ Erreur lors de la suppression:', error);
-      Alert.alert('Erreur', 'Impossible de supprimer la prescription');
+      console.error("❌ Erreur lors de la suppression:", error);
+      Alert.alert("Erreur", "Impossible de supprimer la prescription");
     }
   };
 
@@ -197,6 +212,37 @@ const ReminderList: React.FC = () => {
   const removePrescriptionFromState = (prescriptionId: string) => {
     setPrescriptions((prev) => prev.filter((p) => p.id !== prescriptionId));
   };
+
+  // Activer les notifications pour une prescription
+  const handleActivateNotifications = async (
+    prescription: ListPrescription,
+  ) => {
+    try {
+      const hasPermission = await registerForPushNotifications();
+
+      if (!hasPermission) {
+        Alert.alert(
+          "Permission refusée",
+          "Activez les notifications dans les paramètres de votre téléphone pour recevoir des rappels.",
+        );
+        return;
+      }
+
+      await schedulePrescriptionNotifications(
+        prescription.id,
+        prescription.medications,
+      );
+
+      Alert.alert(
+        "Notifications activées",
+        `✅ ${prescription.medications.length} médicament(s) configuré(s) avec des rappels !`,
+      );
+    } catch (error) {
+      console.error("❌ Erreur lors de l'activation des notifications:", error);
+      Alert.alert("Erreur", "Impossible d'activer les notifications");
+    }
+  };
+
   const renderPrescriptionCard = (prescription: ListPrescription) => {
     const isExpanded = expandedPrescriptions.has(prescription.id);
     const medicationsCount = prescription.medications?.length || 0;
@@ -209,19 +255,17 @@ const ReminderList: React.FC = () => {
         >
           <View style={styles.prescriptionHeaderLeft}>
             <Text style={styles.prescriptionTitle}>
-              Dr. {prescription.doctor || 'Médecin'}
+              Dr. {prescription.doctor || "Médecin"}
             </Text>
             <Text style={styles.prescriptionDate}>
               📅 {formatDate(prescription.prescriptionDate)}
             </Text>
             <Text style={styles.medicationsCount}>
-              💊 {medicationsCount} médicament{medicationsCount > 1 ? 's' : ''}
+              💊 {medicationsCount} médicament{medicationsCount > 1 ? "s" : ""}
             </Text>
           </View>
           <View style={styles.expandIcon}>
-            <Text style={{ fontSize: 20 }}>
-              {isExpanded ? '▼' : '▶'}
-            </Text>
+            <Text style={{ fontSize: 20 }}>{isExpanded ? "▼" : "▶"}</Text>
           </View>
         </TouchableOpacity>
 
@@ -235,7 +279,10 @@ const ReminderList: React.FC = () => {
         {isExpanded && prescription.medications && (
           <View style={styles.medicationsContainer}>
             {prescription.medications.map((medication, index) => (
-              <View key={`${prescription.id}-${medication.name}-${index}`} style={styles.medicationItem}>
+              <View
+                key={`${prescription.id}-${medication.name}-${index}`}
+                style={styles.medicationItem}
+              >
                 <View style={styles.medicationNameRow}>
                   <Text style={styles.medicationName}>
                     {index + 1}. {medication.name}
@@ -248,11 +295,15 @@ const ReminderList: React.FC = () => {
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Fréquence:</Text>
-                    <Text style={styles.detailValue}>{medication.frequency}</Text>
+                    <Text style={styles.detailValue}>
+                      {medication.frequency}
+                    </Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Durée:</Text>
-                    <Text style={styles.detailValue}>{medication.duration}</Text>
+                    <Text style={styles.detailValue}>
+                      {medication.duration}
+                    </Text>
                   </View>
                   {medication.instructions && (
                     <View style={styles.detailRow}>
@@ -275,24 +326,59 @@ const ReminderList: React.FC = () => {
         )}
 
         <View style={styles.cardActions}>
-          <TouchableOpacity 
+          <TouchableOpacity
+            style={styles.actionButtonSmall}
+            onPress={() => handleActivateNotifications(prescription)}
+          >
+            <Svg width="18" height="18" viewBox="0 0 24 24">
+              <Path
+                fill="none"
+                stroke="#10B981"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0 1 18 14.158V11a6.002 6.002 0 0 0-4-5.659V5a2 2 0 1 0-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 1 1-6 0v-1m6 0H9"
+              />
+            </Svg>
+            <Text style={[styles.actionButtonText, { color: "#10B981" }]}>
+              Rappels
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={styles.actionButtonSmall}
             onPress={() => handleEditMedication(prescription.id, 0)}
           >
             <Svg width="18" height="18" viewBox="0 0 24 24">
-              <Path fill="none" stroke="#0F172A" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m14.304 4.844l2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565l6.844-6.844a2.015 2.015 0 0 1 2.852 0Z" />
+              <Path
+                fill="none"
+                stroke="#0F172A"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="m14.304 4.844l2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565l6.844-6.844a2.015 2.015 0 0 1 2.852 0Z"
+              />
             </Svg>
             <Text style={styles.actionButtonText}>Éditer</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.actionButtonSmall}
             onPress={() => handleDeletePrescription(prescription.id)}
           >
             <Svg width="18" height="18" viewBox="0 0 24 24">
-              <Path fill="none" stroke="#E53E3E" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4.687 6.213L6.8 18.976a2.5 2.5 0 0 0 2.466 2.092h3.348m6.698-14.855L17.2 18.976a2.5 2.5 0 0 1-2.466 2.092h-3.348m-1.364-9.952v5.049m3.956-5.049v5.049M2.75 6.213h18.5m-6.473 0v-1.78a1.5 1.5 0 0 0-1.5-1.5h-2.554a1.5 1.5 0 0 0-1.5 1.5v1.78z" />
+              <Path
+                fill="none"
+                stroke="#E53E3E"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.5"
+                d="M4.687 6.213L6.8 18.976a2.5 2.5 0 0 0 2.466 2.092h3.348m6.698-14.855L17.2 18.976a2.5 2.5 0 0 1-2.466 2.092h-3.348m-1.364-9.952v5.049m3.956-5.049v5.049M2.75 6.213h18.5m-6.473 0v-1.78a1.5 1.5 0 0 0-1.5-1.5h-2.554a1.5 1.5 0 0 0-1.5 1.5v1.78z"
+              />
             </Svg>
-            <Text style={[styles.actionButtonText, { color: '#E53E3E' }]}>Supprimer</Text>
+            <Text style={[styles.actionButtonText, { color: "#E53E3E" }]}>
+              Supprimer
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -304,7 +390,9 @@ const ReminderList: React.FC = () => {
       return (
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color="#0F172A" />
-          <Text style={styles.loadingText}>Chargement des prescriptions...</Text>
+          <Text style={styles.loadingText}>
+            Chargement des prescriptions...
+          </Text>
         </View>
       );
     }
@@ -319,7 +407,9 @@ const ReminderList: React.FC = () => {
 
     return (
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-        {prescriptions.map((prescription) => renderPrescriptionCard(prescription))}
+        {prescriptions.map((prescription) =>
+          renderPrescriptionCard(prescription),
+        )}
       </ScrollView>
     );
   };
@@ -331,7 +421,9 @@ const ReminderList: React.FC = () => {
       {renderContent()}
 
       <Modal
-        visible={editingPrescriptionId !== null && editingMedicationIndex !== null}
+        visible={
+          editingPrescriptionId !== null && editingMedicationIndex !== null
+        }
         transparent={true}
         animationType="fade"
       >
@@ -402,7 +494,7 @@ const ReminderList: React.FC = () => {
                   <Text style={styles.label}>Instructions</Text>
                   <TextInput
                     style={[styles.input, styles.textAreaInput]}
-                    value={editForm.instructions || ''}
+                    value={editForm.instructions || ""}
                     onChangeText={(text) => {
                       setEditForm({ ...editForm, instructions: text });
                     }}
@@ -445,61 +537,61 @@ export default ReminderList;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: "#F8FAFC",
     paddingHorizontal: 12,
   },
 
   headerTitle: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: "700",
+    color: "#0F172A",
     marginVertical: 16,
-    textAlign: 'center',
+    textAlign: "center",
     letterSpacing: -0.5,
   },
 
   loaderContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#64748B',
-    fontWeight: '500',
+    color: "#64748B",
+    fontWeight: "500",
   },
 
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   emptyText: {
     fontSize: 16,
-    color: '#64748B',
-    fontWeight: '500',
+    color: "#64748B",
+    fontWeight: "500",
   },
 
   card: {
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: "#E2E8F0",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginBottom: 12,
-    marginHorizontal: 'auto',
-    width: '90%',
+    marginHorizontal: "auto",
+    width: "90%",
     maxWidth: 500,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 5,
     borderLeftWidth: 4,
-    borderLeftColor: '#3B82F6',
+    borderLeftColor: "#3B82F6",
   },
 
   prescriptionContent: {
@@ -508,26 +600,26 @@ const styles = StyleSheet.create({
 
   prescriptionTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#000000ff',
+    fontWeight: "700",
+    color: "#000000ff",
     marginBottom: 4,
   },
 
   prescriptionDate: {
     fontSize: 13,
-    color: '#000000ff',
+    color: "#000000ff",
     marginBottom: 6,
   },
 
   medicamentCount: {
     fontSize: 12,
-    color: '#000000ff',
-    fontWeight: '600',
-    
+    color: "#000000ff",
+    fontWeight: "600",
+
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
 
   editPrescriptionButton: {
@@ -537,226 +629,182 @@ const styles = StyleSheet.create({
 
   prescriptionClickArea: {
     padding: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   arrowIcon: {
     fontSize: 28,
-    color: '#94A3B8',
+    color: "#94A3B8",
   },
 
   arrowIconExpanded: {
-    color: '#3B82F6',
-    fontWeight: '700',
+    color: "#3B82F6",
+    fontWeight: "700",
   },
-
-  /* =========================
-     Styles des cartes (médicaments)
-  ========================= */
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    marginHorizontal: 0,
-    marginVertical: 8,
-    width: '100%',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-    borderLeftWidth: 3,
-    borderLeftColor: '#3B82F6',
-  },
-
   prescriptionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 8,
   },
-
   prescriptionHeaderLeft: {
     flex: 1,
   },
-
-  prescriptionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-
-  prescriptionDate: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 2,
-  },
-
   medicationsCount: {
     fontSize: 12,
-    color: '#64748B',
+    color: "#64748B",
     marginTop: 4,
-    fontWeight: '500',
+    fontWeight: "500",
   },
-
   expandIcon: {
     paddingLeft: 16,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
-
   patientInfo: {
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: "#E2E8F0",
     paddingTop: 12,
     marginTop: 8,
   },
-
   patientLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
+    fontWeight: "600",
+    color: "#64748B",
     marginBottom: 4,
   },
-
   patientValue: {
     fontSize: 13,
-    color: '#0F172A',
-    fontWeight: '500',
+    color: "#0F172A",
+    fontWeight: "500",
     lineHeight: 18,
   },
-
   medicationsContainer: {
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: "#E2E8F0",
     marginTop: 12,
     paddingTop: 12,
   },
-
   medicationItem: {
     marginBottom: 12,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: "#F1F5F9",
   },
-
   medicationNameRow: {
     marginBottom: 8,
   },
-
   medicationName: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: "700",
+    color: "#0F172A",
     letterSpacing: 0.3,
   },
-
   medicationDetails: {
     marginLeft: 4,
   },
 
   detailRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 4,
   },
 
   detailLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
+    fontWeight: "600",
+    color: "#64748B",
     minWidth: 80,
   },
 
   detailValue: {
     fontSize: 12,
-    color: '#0F172A',
-    fontWeight: '500',
+    color: "#0F172A",
+    fontWeight: "500",
     flex: 1,
   },
 
   editMedicationButton: {
     marginTop: 8,
     paddingVertical: 8,
-    backgroundColor: '#F0F9FF',
+    backgroundColor: "#F0F9FF",
     borderRadius: 6,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#E0E7FF',
+    borderColor: "#E0E7FF",
   },
 
   editMedicationButtonText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#0F172A',
+    fontWeight: "600",
+    color: "#0F172A",
   },
 
   cardActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+    flexDirection: "row",
+    justifyContent: "flex-end",
     gap: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: "#E2E8F0",
     paddingTop: 12,
     marginTop: 8,
   },
 
   actionButtonSmall: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 6,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: "#F8FAFC",
   },
 
   actionButtonText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#0F172A',
+    fontWeight: "600",
+    color: "#0F172A",
   },
 
   /* Modal Styles */
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
 
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 24,
-    width: '90%',
+    width: "90%",
     maxWidth: 450,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.25,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 5,
-    maxHeight: '90%',
+    maxHeight: "90%",
   },
 
   infoModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 16,
   },
 
   infoModalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
-    width: '90%',
+    width: "90%",
     maxWidth: 420,
-    maxHeight: '80%',
+    maxHeight: "80%",
     paddingHorizontal: 20,
     paddingVertical: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
@@ -764,24 +812,24 @@ const styles = StyleSheet.create({
   },
 
   infoModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: "#E2E8F0",
   },
 
   modalTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: "700",
+    color: "#0F172A",
   },
 
   closeButton: {
     fontSize: 28,
-    color: '#8E8E93',
+    color: "#8E8E93",
     padding: 4,
   },
 
@@ -794,81 +842,69 @@ const styles = StyleSheet.create({
 
   label: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#0F172A',
+    fontWeight: "600",
+    color: "#0F172A",
     marginBottom: 8,
     letterSpacing: 0.3,
   },
 
   input: {
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: "#E2E8F0",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    color: '#0F172A',
-    backgroundColor: '#F8FAFC',
+    color: "#0F172A",
+    backgroundColor: "#F8FAFC",
   },
 
   textAreaInput: {
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
     minHeight: 80,
   },
 
   modalButtonsContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     marginTop: 24,
   },
-
   modalButton: {
     flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
-
   cancelButton: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: "#F1F5F9",
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: "#E2E8F0",
   },
-
-  cancelButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-
   saveButton: {
-    backgroundColor: '#0F172A',
+    backgroundColor: "#0F172A",
   },
-
   saveButtonText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
-
   topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
-
   circle: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#C7C7CC',
+    borderColor: "#C7C7CC",
     marginRight: 12,
   },
 
   circleCompleted: {
-    backgroundColor: '#000',
-    borderColor: '#000',
+    backgroundColor: "#000",
+    borderColor: "#000",
   },
 
   content: {
@@ -877,21 +913,21 @@ const styles = StyleSheet.create({
 
   medName: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: "700",
+    color: "#0F172A",
     letterSpacing: 0.3,
   },
 
   dosage: {
     fontSize: 13,
-    color: '#64748B',
+    color: "#64748B",
     marginTop: 4,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 
   actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginLeft: 12,
     gap: 8,
   },
@@ -915,145 +951,127 @@ const styles = StyleSheet.create({
 
   infoText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#8E8E93',
+    fontWeight: "600",
+    color: "#8E8E93",
   },
 
   bottomRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginTop: 6,
     marginLeft: 32,
   },
 
   meta: {
     fontSize: 12,
-    color: '#64748B',
+    color: "#64748B",
     marginRight: 20,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 
   cancelButtonStyle: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: "#E2E8F0",
   },
 
   cancelButtonText: {
-    color: '#0F172A',
+    color: "#0F172A",
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 
   /* =========================
      Styles des infos
   ========================= */
   infoMainCard: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: "#F0F9FF",
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
     borderLeftWidth: 4,
-    borderLeftColor: '#0F172A',
+    borderLeftColor: "#0F172A",
   },
-
   infoMainTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: "700",
+    color: "#0F172A",
     marginBottom: 8,
   },
-
   infoMainSubtitle: {
     fontSize: 16,
-    color: '#64748B',
-    fontWeight: '600',
+    color: "#64748B",
+    fontWeight: "600",
   },
-
   infoSectionGroup: {
     marginBottom: 24,
     gap: 12,
   },
-
   infoSection: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#F8FAFC',
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#F8FAFC",
     borderRadius: 10,
     padding: 12,
     marginBottom: 0,
   },
-
   infoIcon: {
     fontSize: 20,
     marginRight: 12,
     marginTop: 2,
   },
-
   infoContent: {
     flex: 1,
   },
-
   infoLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
+    fontWeight: "600",
+    color: "#64748B",
     marginBottom: 4,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-
   infoValue: {
     fontSize: 15,
-    color: '#0F172A',
+    color: "#0F172A",
     lineHeight: 22,
-    fontWeight: '500',
+    fontWeight: "500",
   },
-
   infoDescriptionSection: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: "#F1F5F9",
     borderRadius: 10,
     padding: 14,
     marginBottom: 20,
   },
-
   infoDescriptionTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: "700",
+    color: "#0F172A",
     marginBottom: 10,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-
   infoDescription: {
     fontSize: 14,
-    color: '#475569',
+    color: "#475569",
     lineHeight: 22,
-    fontWeight: '400',
+    fontWeight: "400",
   },
-
   modalHeader: {
     marginBottom: 16,
-  },
-
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0F172A',
   },
 
   /* =========================
      Styles du menu déroulant
   ========================= */
   medicamentsDropdown: {
-    backgroundColor: '#F0F4F8',
+    backgroundColor: "#F0F4F8",
     paddingVertical: 12,
     paddingHorizontal: 12,
     marginVertical: 0,
-    marginHorizontal: 'auto',
-    width: '90%',
+    marginHorizontal: "auto",
+    width: "90%",
     maxWidth: 500,
     borderBottomLeftRadius: 12,
     borderBottomRightRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#E2E8F0',
+    borderLeftColor: "#E2E8F0",
   },
 });
