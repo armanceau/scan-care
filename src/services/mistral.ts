@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
 
 const MISTRAL_API_KEY = process.env.EXPO_PUBLIC_MISTRAL_API_KEY || '';
 const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions';
@@ -31,6 +32,41 @@ async function imageToBase64(imageUri: string): Promise<string> {
   try {
     if (!imageUri) {
       throw new Error('URI de l\'image vide ou undefined');
+    }
+
+    const shouldUseBrowserPath = Platform.OS === 'web' || imageUri.startsWith('http') || imageUri.startsWith('blob:');
+
+    if (shouldUseBrowserPath) {
+      if (imageUri.startsWith('data:')) {
+        return imageUri.split(',')[1] || '';
+      }
+
+      const response = await fetch(imageUri);
+      if (!response.ok) {
+        throw new Error('Échec du téléchargement de l\'image (web)');
+      }
+
+      const blob = await response.blob();
+
+      const base64Data: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            const commaIndex = reader.result.indexOf(',');
+            resolve(commaIndex >= 0 ? reader.result.slice(commaIndex + 1) : reader.result);
+          } else {
+            reject(new Error('Lecture base64 invalide'));
+          }
+        };
+        reader.onerror = () => reject(new Error('FileReader a échoué'));
+        reader.readAsDataURL(blob);
+      });
+
+      if (!base64Data) {
+        throw new Error('Conversion base64 vide (web)');
+      }
+
+      return base64Data;
     }
 
     const fileInfo = await FileSystem.getInfoAsync(imageUri);

@@ -44,7 +44,7 @@ scan-care/
 
 ## 📋 Prérequis
 
-- Node.js : v22.20.0
+- Node.js : v22.22.0
 - npm ou yarn
 - Expo CLI
 - Un compte Firebase configuré
