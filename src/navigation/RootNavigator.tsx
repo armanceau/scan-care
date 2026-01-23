@@ -1,6 +1,6 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import type { User } from "firebase/auth";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View, Platform } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
 
 import { DashboardScreen } from "../screens/DashboardScreen";
@@ -152,14 +152,15 @@ export const RootNavigator = ({
 
 const styles = StyleSheet.create({
   headerAction: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: Platform.OS === 'web' ? 8 : 12,
+    paddingVertical: Platform.OS === 'web' ? 4 : 6,
     backgroundColor: "#CA0B00",
     borderRadius: 10,
     width: 40,
     height: 40,
     justifyContent: "center",
     alignItems: "center",
+    marginRight: Platform.OS === 'web' ? 16 : 12,
   },
   headerActionText: {
     color: "#fff",
@@ -169,6 +170,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     zIndex: 100,
+    paddingHorizontal: Platform.OS === 'web' ? 16 : 0,
   },
   logoContainer: {
     width: 40,
@@ -177,13 +179,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#1F2937",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
+    marginRight: Platform.OS === 'web' ? 8 : 12,
   },
   logoIcon: {
     fontSize: 24,
   },
   appName: {
-    fontSize: 24,
+    fontSize: Platform.OS === 'web' ? 18 : 24,
     fontWeight: "bold",
     color: "#111827",
   },
