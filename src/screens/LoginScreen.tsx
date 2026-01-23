@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 32,
+    paddingTop: Platform.OS === "web" ? 12 : 32,
     paddingBottom: 24,
     justifyContent: "center",
   },
@@ -468,9 +468,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#1F2937',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#1F2937",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 12,
   },
   logoIcon: {

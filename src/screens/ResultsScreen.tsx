@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Platform } from "react-native";
 import {
   View,
   Text,
@@ -10,6 +11,7 @@ import {
   Alert,
   Modal,
 } from "react-native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { getAuth } from "firebase/auth";
 import type { Medication } from "../services/mistral";
 import { savePrescriptionToFirestore } from "../services/firebase";
@@ -25,6 +27,7 @@ interface ResultsScreenProps {
   date?: string;
   patient?: string;
   rawResponse?: string;
+  navigation?: NativeStackNavigationProp<any>;
 }
 
 export default function ResultsScreen({
@@ -33,6 +36,7 @@ export default function ResultsScreen({
   date,
   patient,
   rawResponse,
+  navigation,
 }: ResultsScreenProps) {
   const [medications, setMedications] =
     useState<Medication[]>(initialMedications);
@@ -104,11 +108,31 @@ export default function ResultsScreen({
         Alert.alert(
           "Succès",
           `Ordonnance enregistrée avec succès !\n\n✅ ${medications.length} médicament(s) configuré(s) avec des rappels.`,
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                if (navigation) {
+                  navigation.navigate("Dashboard");
+                }
+              },
+            },
+          ],
         );
       } else {
         Alert.alert(
           "Ordonnance enregistrée",
           `Ordonnance enregistrée mais les notifications ne sont pas activées.\n\nActivez-les dans les paramètres pour recevoir des rappels.`,
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                if (navigation) {
+                  navigation.navigate("Dashboard");
+                }
+              },
+            },
+          ],
         );
       }
     } catch (error) {
