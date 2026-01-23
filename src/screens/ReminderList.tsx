@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Platform } from "react-native";
 import {
   View,
   Text,
@@ -531,7 +532,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F8FAFC",
-    paddingHorizontal: 12,
+    paddingHorizontal: Platform.OS === 'web' ? 24 : 12,
   },
 
   headerTitle: {
